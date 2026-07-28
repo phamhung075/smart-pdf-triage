@@ -318,15 +318,20 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
   return { categorie, subcategorie, title, date };
 }
 
+export function buildCategoriesDescriptionStr(categoriesConfig: ReturnType<typeof getCategoriesConfig>): string {
+  return categoriesConfig.categories.map(c => {
+    const subsStr = c.subcategories ? c.subcategories.map(s => s.id).join(', ') : 'none';
+    const entityHint = buildEntityHintLine(c.id);
+    return `- Category '${c.id}' (${c.name}): ${c.description}. Existing subcategories: [${subsStr}].${entityHint}`;
+  }).join('\n');
+}
+
 export async function classifyPDFText(rawText: string, filename: string, previousError?: string): Promise<DocumentMetadata> {
   const ollama = new Ollama({ host: CONFIG.OLLAMA_HOST });
   await ensureOllamaModel(CONFIG.OLLAMA_MODEL);
 
   const categoriesConfig = getCategoriesConfig();
-  const categoriesDescriptionStr = categoriesConfig.categories.map(c => {
-    const subsStr = c.subcategories ? c.subcategories.map(s => s.id).join(', ') : 'none';
-    return `- Category '${c.id}' (${c.name}): ${c.description}. Existing subcategories: [${subsStr}]`;
-  }).join('\n');
+  const categoriesDescriptionStr = buildCategoriesDescriptionStr(categoriesConfig);
 
   const textSnippet = rawText.length > 4000 ? rawText.substring(0, 4000) + '...' : rawText;
 
