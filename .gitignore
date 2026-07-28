@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# TypeScript Build Output
+dist/
+
+# SQLite Database Files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Input & Organized PDFs (Keep directory structure)
+input/*
+!input/.gitkeep
+organized/*
+!organized/.gitkeep
+
+# Runtime registry mirror (personal document metadata)
+registry.json
+
+# Environment variables & Logs
+.env
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Vendored plugin (own git repo, not a submodule of this project)
+.claude/plugins/superpowers/

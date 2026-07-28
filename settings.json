@@ -1,0 +1,6 @@
+{
+  "input_dir": "C:\\Users\\daihu\\OneDrive\\GiayTo\\Hung\\__raws",
+  "output_root_dir": "C:\\Users\\daihu\\OneDrive\\GiayTo\\Hung\\__archive",
+  "ollama_model": "kimi-k3:cloud",
+  "ollama_host": "http://127.0.0.1:11434"
+}

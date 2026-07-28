@@ -1,0 +1,939 @@
+{
+  "categories": [
+    {
+      "id": "invoices",
+      "name": "Factures",
+      "description": "Factures, reçus, quittances et bulletins",
+      "aliases": [
+        "facture",
+        "invoice",
+        "bill",
+        "receipt",
+        "factures"
+      ],
+      "subcategories": [
+        {
+          "id": "sfr",
+          "name": "SFR",
+          "aliases": [
+            "sfr",
+            "red"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "foncia",
+          "name": "Foncia",
+          "aliases": [
+            "foncia",
+            "loyer"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "edf",
+          "name": "EDF",
+          "aliases": [
+            "edf",
+            "engie",
+            "energie"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "cdiscount",
+          "name": "Cdiscount",
+          "aliases": [
+            "cdiscount",
+            "amazon",
+            "fnac"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "general",
+          "name": "General",
+          "aliases": [
+            "general"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "recommand",
+          "name": "Recommand",
+          "aliases": [
+            "recommand"
+          ],
+          "subcategories": []
+        }
+      ]
+    },
+    {
+      "id": "contracts",
+      "name": "Contrats",
+      "description": "Contrats de travail, baux et engagements",
+      "aliases": [
+        "contrat",
+        "contract",
+        "agreement",
+        "nda",
+        "bail"
+      ],
+      "subcategories": [
+        {
+          "id": "cdi_cdd",
+          "name": "Travail",
+          "aliases": [
+            "cdi",
+            "cdd",
+            "travail",
+            "employeur"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "bail",
+          "name": "Bail",
+          "aliases": [
+            "bail",
+            "location"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "general",
+          "name": "General",
+          "aliases": [
+            "general"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "fnac",
+          "name": "Fnac",
+          "aliases": [
+            "fnac"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "conditions_generales",
+          "name": "Conditions Generales",
+          "aliases": [
+            "conditions_generales"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "gan_sante",
+          "name": "Gan Sante",
+          "aliases": [
+            "gan_sante"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "lai_dentail",
+          "name": "Lai Dentail",
+          "aliases": [
+            "lai_dentail"
+          ],
+          "subcategories": []
+        }
+      ]
+    },
+    {
+      "id": "administrative",
+      "name": "Administratif",
+      "description": "Documents administratifs, impôts et banques",
+      "aliases": [
+        "tax",
+        "taxe",
+        "impot",
+        "bank",
+        "banque",
+        "gov",
+        "attestation"
+      ],
+      "subcategories": [
+        {
+          "id": "credit_mutuel",
+          "name": "Crédit Mutuel",
+          "aliases": [
+            "creditmutuel",
+            "credit mutuel",
+            "ccm marseille",
+            "ccm"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "societe_generale",
+          "name": "Société Générale",
+          "aliases": [
+            "societe generale",
+            "société générale",
+            "sg"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "bnp_paribas",
+          "name": "BNP Paribas",
+          "aliases": [
+            "bnp",
+            "bnp paribas"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "boursobank",
+          "name": "BoursoBank",
+          "aliases": [
+            "boursorama",
+            "boursobank"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "lcl",
+          "name": "LCL",
+          "aliases": [
+            "lcl",
+            "credit lyonnais"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "la_banque_postale",
+          "name": "La Banque Postale",
+          "aliases": [
+            "banque postale",
+            "la banque postale"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "impot",
+          "name": "Impôts",
+          "aliases": [
+            "impot",
+            "taxe",
+            "avis",
+            "revenu"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "urssaf",
+          "name": "URSSAF",
+          "aliases": [
+            "urssaf",
+            "cotisation"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "general",
+          "name": "General",
+          "aliases": [
+            "general"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "attestationstageproelectrosas20191008",
+          "name": "Attestationstageproelectrosas20191008",
+          "aliases": [
+            "attestationstageproelectrosas20191008"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "attestationtitulairecontrat2ddoc",
+          "name": "Attestationtitulairecontrat2ddoc",
+          "aliases": [
+            "attestationtitulairecontrat2ddoc"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "cercles",
+          "name": "Cercles",
+          "aliases": [
+            "cercles"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "calendrier",
+          "name": "Calendrier",
+          "aliases": [
+            "calendrier"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "certificatfrancophone",
+          "name": "Certificat francophone",
+          "aliases": [
+            "certificat francophone"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "certificationdigitalactive",
+          "name": "Certification digital active",
+          "aliases": [
+            "certification digital active"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "declarationhonneurcommunautedevie",
+          "name": "Declarationhonneurcommunautedevie",
+          "aliases": [
+            "declarationhonneurcommunautedevie"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "exemple",
+          "name": "Exemple",
+          "aliases": [
+            "exemple"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "export",
+          "name": "Export",
+          "aliases": [
+            "export"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "mutuelle",
+          "name": "Mutuelle",
+          "aliases": [
+            "mutuelle"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "page",
+          "name": "Page",
+          "aliases": [
+            "page"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "pham",
+          "name": "Pham",
+          "aliases": [
+            "pham"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "recepisse",
+          "name": "Recepisse",
+          "aliases": [
+            "recepisse"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "ruptureconventionnelle",
+          "name": "Ruptureconventionnelle",
+          "aliases": [
+            "ruptureconventionnelle"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "titre2019",
+          "name": "Titre2019",
+          "aliases": [
+            "titre2019"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "titrehung",
+          "name": "Titrehung",
+          "aliases": [
+            "titrehung"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "bon",
+          "name": "Bon",
+          "aliases": [
+            "bon"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "dcyjxe9mt9i7un7tolhu",
+          "name": "Dcyjxe9mt9i7un7tolhu",
+          "aliases": [
+            "dcyjxe9mt9i7un7tolhu"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "france_travail",
+          "name": "France Travail",
+          "aliases": [
+            "france_travail"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "bac_l1informatique",
+          "name": "Bac L1informatique",
+          "aliases": [
+            "bac_l1informatique"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "bulletinscolaire",
+          "name": "Bulletinscolaire",
+          "aliases": [
+            "bulletinscolaire"
+          ],
+          "subcategories": []
+        }
+      ]
+    },
+    {
+      "id": "health",
+      "name": "Santé",
+      "description": "Soins médicaux, remboursements, Ameli, mutuelles et ordonnances",
+      "aliases": [
+        "health",
+        "sante",
+        "medical",
+        "mutuelle",
+        "ameli",
+        "soins",
+        "dentaire"
+      ],
+      "subcategories": [
+        {
+          "id": "ameli",
+          "name": "Ameli",
+          "aliases": [
+            "ameli",
+            "assurance maladie",
+            "cpam"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "gan_sante",
+          "name": "Gan Santé",
+          "aliases": [
+            "gan_sante",
+            "gan sante"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "lai_dentail",
+          "name": "Lai Dentail",
+          "aliases": [
+            "lai_dentail",
+            "lai dental"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "general",
+          "name": "General",
+          "aliases": [
+            "general"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "cesi",
+          "name": "Cesi",
+          "aliases": [
+            "cesi"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "343008_1",
+          "name": "343008 1",
+          "aliases": [
+            "343008_1"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "dai",
+          "name": "Dai",
+          "aliases": [
+            "dai"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "dobveepr",
+          "name": "Dobveepr",
+          "aliases": [
+            "dobveepr"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "contrat",
+          "name": "Contrat",
+          "aliases": [
+            "contrat"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "thi",
+          "name": "Thi",
+          "aliases": [
+            "thi"
+          ],
+          "subcategories": []
+        }
+      ]
+    },
+    {
+      "id": "identity",
+      "name": "Identité",
+      "description": "Cartes d'identité, passeports, titres de séjour et actes civils",
+      "aliases": [
+        "identity",
+        "identite",
+        "passport",
+        "passeport",
+        "titresejour",
+        "permis",
+        "acte"
+      ],
+      "subcategories": [
+        {
+          "id": "titre_sejour",
+          "name": "Séjour",
+          "aliases": [
+            "titresejour",
+            "carte de sejour"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "passeport",
+          "name": "Passeport",
+          "aliases": [
+            "passport",
+            "passeport"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "carte_vitale",
+          "name": "Carte Vitale",
+          "aliases": [
+            "cartevitale",
+            "carte vitale"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "permis_conduire",
+          "name": "Permis Conduire",
+          "aliases": [
+            "permis_conduire"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "acte_mariage",
+          "name": "Acte Mariage",
+          "aliases": [
+            "acte_mariage"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "carte_identite",
+          "name": "Carte Identite",
+          "aliases": [
+            "carte_identite"
+          ],
+          "subcategories": []
+        }
+      ]
+    },
+    {
+      "id": "housing",
+      "name": "Logement",
+      "description": "Justificatifs de domicile, loyers, baux et attestation d'hébergement",
+      "aliases": [
+        "housing",
+        "logement",
+        "domicile",
+        "hebergement",
+        "loyer",
+        "foncia"
+      ],
+      "subcategories": [
+        {
+          "id": "foncia",
+          "name": "Foncia",
+          "aliases": [
+            "foncia"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "justificatif_domicile",
+          "name": "Justificatif Domicile",
+          "aliases": [
+            "domicile",
+            "hebergement",
+            "quittance"
+          ],
+          "subcategories": []
+        }
+      ]
+    },
+    {
+      "id": "insurance",
+      "name": "Assurances",
+      "description": "Assurances auto, habitation, prévoyance et responsabilité civile",
+      "aliases": [
+        "insurance",
+        "assurance",
+        "allianz",
+        "macif",
+        "maaf",
+        "prevoyance"
+      ],
+      "subcategories": [
+        {
+          "id": "allianz",
+          "name": "Allianz",
+          "aliases": [
+            "allianz"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "general",
+          "name": "General",
+          "aliases": [
+            "general"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "sfr",
+          "name": "Sfr",
+          "aliases": [
+            "sfr"
+          ],
+          "subcategories": []
+        }
+      ]
+    },
+    {
+      "id": "education",
+      "name": "Éducation",
+      "description": "Formations, cours, diplômes et scolarité",
+      "aliases": [
+        "education",
+        "formation",
+        "alternance",
+        "ecole",
+        "universite"
+      ],
+      "subcategories": [
+        {
+          "id": "nextech",
+          "name": "NEXTECH",
+          "aliases": [
+            "nextech"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "cesi",
+          "name": "CESI",
+          "aliases": [
+            "cesi"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "af2m",
+          "name": "Af2M",
+          "aliases": [
+            "af2m"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "openclassrooms",
+          "name": "OpenClassrooms",
+          "aliases": [
+            "openclassrooms"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "diplomes",
+          "name": "Diplômes",
+          "aliases": [
+            "diplome",
+            "certificat",
+            "bachelor"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "general",
+          "name": "General",
+          "aliases": [
+            "general"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "pro_electro",
+          "name": "Pro Electro",
+          "aliases": [
+            "pro_electro"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "contrat",
+          "name": "Contrat",
+          "aliases": [
+            "contrat"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "d_cla",
+          "name": "D Cla",
+          "aliases": [
+            "d_cla"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "lettredemotivation",
+          "name": "Lettredemotivation",
+          "aliases": [
+            "lettredemotivation"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "notice",
+          "name": "Notice",
+          "aliases": [
+            "notice"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "yahoo",
+          "name": "Yahoo",
+          "aliases": [
+            "yahoo"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "titre_sejour",
+          "name": "Titre Sejour",
+          "aliases": [
+            "titre_sejour"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "gan_sante",
+          "name": "Gan Sante",
+          "aliases": [
+            "gan_sante"
+          ],
+          "subcategories": []
+        }
+      ]
+    },
+    {
+      "id": "recruitment",
+      "name": "Recrutement",
+      "description": "Lettres de motivation, CV et candidatures",
+      "aliases": [
+        "recrutement",
+        "candidature",
+        "entretien",
+        "postulation"
+      ],
+      "subcategories": [
+        {
+          "id": "lettres_motivation",
+          "name": "Motivation",
+          "aliases": [
+            "motivation",
+            "candidature"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "recommandations",
+          "name": "Recommandations",
+          "aliases": [
+            "recommandation"
+          ],
+          "subcategories": []
+        }
+      ]
+    },
+    {
+      "id": "correspondence",
+      "name": "Courriers",
+      "description": "Courriers reçus, emails et lettres",
+      "aliases": [
+        "courrier",
+        "lettre",
+        "mail",
+        "email",
+        "recommande"
+      ],
+      "subcategories": [
+        {
+          "id": "general",
+          "name": "General",
+          "aliases": [
+            "general"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "vignette",
+          "name": "Vignette",
+          "aliases": [
+            "vignette"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "directeur",
+          "name": "Directeur",
+          "aliases": [
+            "directeur"
+          ],
+          "subcategories": []
+        }
+      ]
+    },
+    {
+      "id": "technical",
+      "name": "Technique",
+      "description": "Manuels techniques, guides et spécifications",
+      "aliases": [
+        "manual",
+        "spec",
+        "guide",
+        "documentation",
+        "technical"
+      ],
+      "subcategories": [
+        {
+          "id": "specifications",
+          "name": "Spécifications",
+          "aliases": [
+            "spec",
+            "specification"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "manuals",
+          "name": "Manuels",
+          "aliases": [
+            "manual",
+            "guide"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "cdiscount",
+          "name": "Cdiscount",
+          "aliases": [
+            "cdiscount"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "gan_sante",
+          "name": "Gan Sante",
+          "aliases": [
+            "gan_sante"
+          ],
+          "subcategories": []
+        }
+      ]
+    },
+    {
+      "id": "reports",
+      "name": "Rapports",
+      "description": "Rapports de projet et comptes-rendus",
+      "aliases": [
+        "report",
+        "rapport",
+        "presentation",
+        "meeting",
+        "project"
+      ],
+      "subcategories": [
+        {
+          "id": "projet",
+          "name": "Projets",
+          "aliases": [
+            "projet",
+            "project"
+          ],
+          "subcategories": []
+        }
+      ]
+    },
+    {
+      "id": "bulletin_salaire",
+      "name": "Bulletin Salaire",
+      "description": "Category auto-created for Bulletin Salaire",
+      "aliases": [
+        "bulletin_salaire"
+      ],
+      "subcategories": [
+        {
+          "id": "pacifique4",
+          "name": "Pacifique4",
+          "aliases": [
+            "pacifique4"
+          ],
+          "subcategories": []
+        }
+      ]
+    }
+  ]
+}

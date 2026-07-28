@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart PDF Triage System - Local AI Classifier</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="header-title">
+        <h1>📁 Smart PDF Triage Dashboard</h1>
+        <p class="subtitle">AI Document Classification, Entity Extraction & Folder Sorting System</p>
+      </div>
+      <div class="header-actions">
+        <div id="ollamaStatusBadge" class="ollama-status-badge" title="Checking local Ollama AI agent...">
+          <span class="status-dot"></span>
+          <span id="ollamaStatusText">Checking Ollama...</span>
+        </div>
+        <button id="btnStartOllama" class="btn-secondary" style="display: none;" title="Launch the local Ollama server">▶️ Start Ollama</button>
+        <button id="btnRestartServer" class="btn-secondary" style="display: none;" title="Restart the backend server">🔄 Restart Server</button>
+        <button id="btnScan" class="btn-primary">⚡ Scan & Triage PDFs</button>
+        <button id="btnRepair" class="btn-secondary" title="Fix file locations, reclassify generic items, and sync registry">🔧 Repair Registry</button>
+        <button id="btnClear" class="btn-secondary" style="color: #ef4444; border-color: rgba(239,68,68,0.3);" title="Clear database registry and return archived files to __raws">🗑️ Clear Registry</button>
+        <button id="btnSettings" class="btn-secondary">⚙️ System Config</button>
+      </div>
+    </header>
+
+    <!-- Stats Bar -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="statTotalDocs">0</div>
+        <div class="stat-label">Total Documents Indexed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statCategoriesCount">0</div>
+        <div class="stat-label">Active Categories</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statSubcategoriesCount">0</div>
+        <div class="stat-label">Active Subcategories</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statSystemStatus" style="color: #10b981;">Ready</div>
+        <div class="stat-label">Classifier Engine Status</div>
+      </div>
+    </div>
+
+    <!-- Category & Subcategory Filter Pills Bar -->
+    <div id="categoryPills" class="category-pills" style="display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.8rem;"></div>
+    <div id="subcategoryPills" class="subcategory-pills" style="display: none; margin-bottom: 1rem;"></div>
+
+    <!-- Filter & Search Bar -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search by title, ref #, text content, tags or summary...">
+      </div>
+      <div class="filter-selects">
+        <select id="filterCategory">
+          <option value="">All Categories</option>
+        </select>
+        <select id="filterSubcategory">
+          <option value="">All Subcategories</option>
+        </select>
+        <button id="btnResetFilters" class="btn-secondary">Reset</button>
+      </div>
+    </div>
+
+    <!-- Main Documents Grid -->
+    <main id="docsGrid" class="docs-grid">
+      <!-- Document cards rendered dynamically via app.js -->
+    </main>
+  </div>
+
+  <!-- Document Edit Modal -->
+  <div id="editModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>✏️ Edit Document Metadata</h2>
+        <button id="btnCloseModal" class="btn-secondary">✕</button>
+      </div>
+      <form id="editForm">
+        <input type="hidden" id="editDocId">
+        
+        <div class="form-group">
+          <label>Document Title</label>
+          <input type="text" id="editTitle" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label>Category</label>
+            <input type="text" id="editCategory" required>
+          </div>
+          <div class="form-group">
+            <label>Subcategory</label>
+            <input type="text" id="editSubcategory" required>
+          </div>
+          <div class="form-group">
+            <label>Date (YYYY-MM-DD)</label>
+            <input type="text" id="editDate" placeholder="YYYY-MM-DD">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Reference # / Registre</label>
+          <input type="text" id="editRegistre" placeholder="Invoice # or Contract ID">
+        </div>
+
+        <div class="form-group">
+          <label>💡 Executive Summary</label>
+          <textarea id="editSummary" rows="3" placeholder="3-5 sentence executive summary..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Tags (comma separated)</label>
+          <input type="text" id="editTags" placeholder="invoice, energy, edf">
+        </div>
+
+        <div class="form-group">
+          <label>Extracted PDF Raw Text Layer</label>
+          <textarea id="editRawText" rows="6" readonly style="background: rgba(15,23,42,0.6); color: #94a3b8; font-family: monospace; font-size: 0.85rem;"></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem;">
+          <button type="button" id="btnCancelEdit" class="btn-secondary">Cancel</button>
+          <button type="submit" class="btn-primary">Save & Relocalize File</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Settings & Categories Modal -->
+  <div id="settingsModal" class="modal-backdrop">
+    <div class="modal" style="max-width: 750px;">
+      <div class="modal-header">
+        <h2>⚙️ System Configuration & Categories Manager</h2>
+        <button id="btnCloseSettings" class="btn-secondary">✕</button>
+      </div>
+
+      <div style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; display: flex; gap: 1rem;">
+        <button id="tabBtnSystem" class="btn-secondary" style="border-bottom: 2px solid var(--accent-blue);">System & Paths</button>
+        <button id="tabBtnCategories" class="btn-secondary">Manage Categories & Subcategories</button>
+      </div>
+
+      <!-- Tab 1: System Settings -->
+      <form id="settingsForm">
+        <div class="form-group">
+          <label>Input PDF Directory Path (Reads incoming files ONLY from here)</label>
+          <input type="text" id="cfgInputDir" required placeholder="C:\\Users\\daihu\\OneDrive\\GiayTo\\Hung\\__raws">
+        </div>
+
+        <div class="form-group">
+          <label>Organized Output Root Path (Root location to move sorted files)</label>
+          <input type="text" id="cfgOutputDir" required placeholder="C:\\Users\\daihu\\OneDrive\\GiayTo\\Hung\\__archive">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label>Ollama Model Name</label>
+            <input type="text" id="cfgOllamaModel" required placeholder="qwen3.5:9b">
+          </div>
+          <div class="form-group">
+            <label>Ollama Host URL</label>
+            <input type="text" id="cfgOllamaHost" required placeholder="http://127.0.0.1:11434">
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem;">
+          <button type="submit" class="btn-primary">Save System Settings</button>
+        </div>
+      </form>
+
+      <!-- Tab 2: Categories & Subcategories Editor -->
+      <div id="categoriesEditor" style="display: none;">
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Add, edit, or remove document categories and subcategories used by Ollama AI classification.
+        </p>
+
+        <div id="categoriesList" style="display: flex; flex-direction: column; gap: 0.8rem; margin-bottom: 1.5rem; max-height: 350px; overflow-y: auto;">
+          <!-- Rendered via JS -->
+        </div>
+
+        <div style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+          <h4 style="margin-bottom: 0.8rem;">Add New Category</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 2fr auto; gap: 0.8rem; align-items: flex-end;">
+            <div class="form-group" style="margin: 0;">
+              <label>ID</label>
+              <input type="text" id="newCatId" placeholder="e.g. medical">
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label>Name</label>
+              <input type="text" id="newCatName" placeholder="e.g. Health & Medical">
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label>Keyword Aliases (comma separated)</label>
+              <input type="text" id="newCatAliases" placeholder="medical, doctor, health, rx">
+            </div>
+            <button type="button" id="btnAddCategory" class="btn-primary" style="height: 42px;">+ Add</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Active Scan Flow Progress Tracker Modal -->
+  <div id="scanProgressModal" class="modal-backdrop">
+    <div class="modal" style="max-width: 850px;">
+      <div class="modal-header">
+        <h2>🔄 PDF Triage Execution Flow</h2>
+        <button id="btnCloseScanProgress" class="btn-secondary">✕</button>
+      </div>
+      <div style="margin-bottom: 1rem; color: #94a3b8; font-size: 0.9rem;" id="scanProgressHeader">
+        Scanning incoming PDFs from <code>__raws</code>...
+      </div>
+      <div style="max-height: 420px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 12px; padding: 0.8rem; background: rgba(15, 23, 42, 0.7);">
+        <div id="scanProgressList" style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <!-- Live PDF status rows -->
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 1.2rem;">
+        <button id="btnDoneScanProgress" class="btn-primary" style="display: none;">Close & Refresh Dashboard</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Relocalize & AI Feedback Modal with Dropdown Reason Controls -->
+  <div id="relocalizeModal" class="modal-backdrop">
+    <div class="modal" style="max-width: 680px;">
+      <div class="modal-header">
+        <h2>📍 Relocalize & Correct Document</h2>
+        <button id="btnCloseRelocalizeModal" class="btn-secondary">✕</button>
+      </div>
+
+      <input type="hidden" id="relocalizeDocId">
+
+      <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 1.2rem;">
+        <div style="font-size: 1rem; font-weight: 600; color: var(--accent-blue);" id="relocalizeDocTitle">Document Title</div>
+        <div style="font-size: 0.85rem; color: #94a3b8; margin-top: 0.3rem;" id="relocalizeCurrentPath">Current Path: __archive/...</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label>Target Category</label>
+          <select id="relocalizeCategorySelect" style="width: 100%; padding: 0.65rem; border-radius: 6px; background: #0f172a; color: #fff; border: 1px solid var(--border-color); font-size: 0.95rem;">
+            <!-- Pre-populated via JS -->
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Target Subcategory</label>
+          <select id="relocalizeSubcategorySelect" style="width: 100%; padding: 0.65rem; border-radius: 6px; background: #0f172a; color: #fff; border: 1px solid var(--border-color); font-size: 0.95rem;">
+            <!-- Pre-populated via JS -->
+          </select>
+        </div>
+      </div>
+
+      <input type="text" id="relocalizeCustomSubcategory" placeholder="Enter new subcategory slug (e.g. credit_mutuel, pacifique4)..." style="width: 100%; display: none; margin-bottom: 1rem; padding: 0.65rem; border-radius: 6px; background: #0f172a; color: #fff; border: 1px solid var(--border-color);">
+
+      <!-- Structured Reason Dropdowns -->
+      <div class="form-group">
+        <label>Why is Category / Location Wrong?</label>
+        <select id="relocalizeCatErrorReason" style="width: 100%; padding: 0.65rem; border-radius: 6px; background: #0f172a; color: #fff; border: 1px solid var(--border-color); font-size: 0.95rem;">
+          <option value="">-- Select Category Error Reason --</option>
+          <option value="Bank Account Statement misclassified as Vendor Invoice (Internal transaction line issue)">Bank Account Statement misclassified as Vendor Invoice (Internal transaction line issue)</option>
+          <option value="Tax document (Avis d'impôt) misclassified as Courriers / Correspondence">Tax document (Avis d'impôt) misclassified as Courriers / Correspondence</option>
+          <option value="Pay Slip (Bulletin de salaire) misclassified as Invoice">Pay Slip (Bulletin de salaire) misclassified as Invoice</option>
+          <option value="Health / Medical document misclassified as Administrative">Health / Medical document misclassified as Administrative</option>
+          <option value="Identity / Passport / Civil Record misclassified as Education">Identity / Passport / Civil Record misclassified as Education</option>
+          <option value="Proof of Domicile misclassified as Contract">Proof of Domicile misclassified as Contract</option>
+          <option value="__CUSTOM__">Other Category Error Reason...</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Why is Subcategory Wrong?</label>
+        <select id="relocalizeSubErrorReason" style="width: 100%; padding: 0.65rem; border-radius: 6px; background: #0f172a; color: #fff; border: 1px solid var(--border-color); font-size: 0.95rem;">
+          <option value="">-- Select Subcategory Error Reason --</option>
+          <option value="Generic subcategory fallback used (general / other / divers)">Generic subcategory fallback used (general / other / divers)</option>
+          <option value="Wrong Employer / Enterprise name for Pay Slip">Wrong Employer / Enterprise name for Pay Slip</option>
+          <option value="Wrong Bank Society name">Wrong Bank Society name</option>
+          <option value="Date numbers inside subcategory folder name">Date numbers inside subcategory folder name</option>
+          <option value="New Company / Organization needs to be created">New Company / Organization needs to be created</option>
+          <option value="__CUSTOM__">Other Subcategory Error Reason...</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>AI Correction Feedback Note (Auto-filled from reasons above or type custom note)</label>
+        <textarea id="relocalizeReason" rows="3" placeholder="Explain what local AI got wrong so it learns for future runs..." style="width: 100%; padding: 0.65rem; border-radius: 6px; background: #0f172a; color: #fff; border: 1px solid var(--border-color); font-size: 0.9rem;"></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem;">
+        <button id="btnAiReanalyze" class="btn-secondary" style="color: #a7f3d0;">🤖 Re-Analyze with AI Feedback</button>
+        <button id="btnConfirmRelocalize" class="btn-primary">📍 Move & Relocalize Now</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=9"></script>
+</body>
+</html>

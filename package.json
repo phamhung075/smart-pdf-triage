@@ -1,0 +1,44 @@
+{
+  "name": "pdf_triage",
+  "version": "1.0.0",
+  "description": "Local PDF Triage, Categorization, SQLite/JSON Registry, Web UI & FastMCP Server",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx watch src/index.ts",
+    "scan": "tsx src/index.ts scan",
+    "mcp": "tsx src/index.ts mcp",
+    "build": "tsc"
+  },
+  "keywords": [
+    "pdf",
+    "triage",
+    "ollama",
+    "mcp",
+    "sqlite",
+    "zod"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "ollama": "^0.5.15",
+    "pdf-parse": "^1.1.1",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.5",
+    "@types/pdf-parse": "^1.1.4",
+    "@types/sqlite3": "^3.1.11",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}
