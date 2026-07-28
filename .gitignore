@@ -32,3 +32,6 @@ Thumbs.db
 
 # Vendored plugin (own git repo, not a submodule of this project)
 .claude/plugins/superpowers/
+
+# Local worktree sessions
+.claude/worktrees/
