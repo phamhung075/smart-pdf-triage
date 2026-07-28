@@ -28,6 +28,24 @@ export const CategoriesConfigSchema = z.object({
   categories: z.array(CategorySchema)
 });
 
+export const EntityItemSchema = z.object({
+  slug: z.string().min(1, "Entity slug is required"),
+  name: z.string().min(1, "Entity name is required"),
+  aliases: z.array(z.string()).optional().default([])
+});
+
+export const EntityDictionarySchema = z.object({
+  banks: z.array(EntityItemSchema).optional().default([]),
+  energy: z.array(EntityItemSchema).optional().default([]),
+  telecom: z.array(EntityItemSchema).optional().default([]),
+  insurance: z.array(EntityItemSchema).optional().default([]),
+  gov: z.array(EntityItemSchema).optional().default([]),
+  health: z.array(EntityItemSchema).optional().default([])
+});
+
+export type EntityItem = z.infer<typeof EntityItemSchema>;
+export type EntityDictionary = z.infer<typeof EntityDictionarySchema>;
+
 export const SystemSettingsSchema = z.object({
   input_dir: z.string().min(1, "Input directory is required"),
   output_root_dir: z.string().min(1, "Output directory is required"),
