@@ -223,7 +223,15 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
     else if (/\bamazon\b/i.test(combined)) subcategorie = 'amazon';
     else {
       const dictVendor = matchEntityDictionary(combined, ['telecom', 'energy']);
-      if (dictVendor) subcategorie = dictVendor.subcategorie;
+      if (dictVendor) {
+        subcategorie = dictVendor.subcategorie;
+      } else {
+        const dictInsuranceViaFacture = matchEntityDictionary(combined, ['insurance']);
+        if (dictInsuranceViaFacture) {
+          categorie = dictInsuranceViaFacture.categorie;
+          subcategorie = dictInsuranceViaFacture.subcategorie;
+        }
+      }
     }
   }
   // 7. Taxes & Government Income Statements
