@@ -86,7 +86,8 @@ export function matchEntityDictionary(combined: string, domains: (keyof EntityDi
       for (const candidate of candidates) {
         const escaped = candidate.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         if (escaped.length === 0) continue;
-        if (new RegExp(`\\b${escaped}\\b`, 'i').test(combined)) {
+        // Use Unicode-aware word boundaries to correctly handle accented characters
+        if (new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'iu').test(combined)) {
           return { categorie, subcategorie: entry.slug };
         }
       }
