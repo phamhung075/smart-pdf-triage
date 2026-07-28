@@ -187,6 +187,10 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
     if (/\bameli|assurance maladie|cpam|attestationam\b/i.test(combined)) subcategorie = 'ameli';
     else if (/\bgan\b/i.test(combined)) subcategorie = 'gan_sante';
     else if (/\blai dentail|lai dental\b/i.test(combined)) subcategorie = 'lai_dentail';
+    else {
+      const dictHealth = matchEntityDictionary(combined, ['health']);
+      if (dictHealth) subcategorie = dictHealth.subcategorie;
+    }
   }
   // 3. Housing & Domicile Proof
   else if (/\b(justificatif de domicile|attestation d'hébergement|attestation hebergement|attestation cercles|declarationhonneur|quittance de loyer|foncia|logement)\b/i.test(combined)) {
@@ -217,16 +221,30 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
     else if (/\bedf|engie\b/i.test(combined)) subcategorie = 'edf';
     else if (/\bcdiscount\b/i.test(combined)) subcategorie = 'cdiscount';
     else if (/\bamazon\b/i.test(combined)) subcategorie = 'amazon';
+    else {
+      const dictVendor = matchEntityDictionary(combined, ['telecom', 'energy']);
+      if (dictVendor) subcategorie = dictVendor.subcategorie;
+    }
   }
   // 7. Taxes & Government Income Statements
   else if (/\b(avis[ _-]d[ _-]impot|avis[ _-]d'impot|avis[ _-]impot|déclaration[ _-]d'impôt|taxe[ _-]fonciere|taxe[ _-]foncière|taxe[ _-]d'habitation|revenus[ _-]et[ _-]prelev|prélèvement[ _-]sociaux|prelev[ _-]sociaux|finances[ _-]publiques|dgfip|impôt|impots)\b/i.test(combined)) {
     categorie = 'administrative';
     subcategorie = 'impot';
   }
+  // 7b. Government & Social Agencies
+  else if (matchEntityDictionary(combined, ['gov'])) {
+    const dictGov = matchEntityDictionary(combined, ['gov'])!;
+    categorie = dictGov.categorie;
+    subcategorie = dictGov.subcategorie;
+  }
   // 8. Insurance / Assurances
-  else if (/\b(assurance auto|assurance habitation|prévoyance|prevoyance|responsabilité civile|allianz|macif|maaf|a2a)\b/i.test(combined)) {
+  else if (/\b(assurance auto|assurance habitation|prévoyance|prevoyance|responsabilité civile|allianz|macif|maaf|a2a)\b/i.test(combined) || matchEntityDictionary(combined, ['insurance'])) {
     categorie = 'insurance';
     if (/\ballianz\b/i.test(combined)) subcategorie = 'allianz';
+    else {
+      const dictInsurance = matchEntityDictionary(combined, ['insurance']);
+      if (dictInsurance) subcategorie = dictInsurance.subcategorie;
+    }
   }
   // 9. Banks / Finance
   else if (/\b(caisse de credit mutuel|crédit mutuel|credit mutuel|ccm marseille|creditmutuel)\b/i.test(combined)) {
@@ -247,6 +265,10 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
   } else if (/\b(la banque postale|banque postale)\b/i.test(combined)) {
     categorie = 'administrative';
     subcategorie = 'la_banque_postale';
+  } else if (matchEntityDictionary(combined, ['banks'])) {
+    const dictBank = matchEntityDictionary(combined, ['banks'])!;
+    categorie = dictBank.categorie;
+    subcategorie = dictBank.subcategorie;
   }
   // 10. Recruitment
   else if (/\b(lettre de motivation|candidature|recrutement|curriculum|cv|postuler|entretien|recommandation)\b/i.test(combined)) {
@@ -286,6 +308,11 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
     else if (/\bamazon\b/i.test(combined)) subcategorie = 'amazon';
     else if (/\bfnac\b/i.test(combined)) subcategorie = 'fnac';
     else if (/\bfoncia\b/i.test(combined)) subcategorie = 'foncia';
+    else if (matchEntityDictionary(combined, ALL_ENTITY_DOMAINS)) {
+      const dictAny = matchEntityDictionary(combined, ALL_ENTITY_DOMAINS)!;
+      categorie = dictAny.categorie;
+      subcategorie = dictAny.subcategorie;
+    }
     else {
       // Dynamic Subcategory Extraction from Filename Words
       const cleanName = filename.replace(/\.pdf$/i, '').replace(/[-_\s]+/g, '_').toLowerCase();
