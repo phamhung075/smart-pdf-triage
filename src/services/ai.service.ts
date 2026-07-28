@@ -148,6 +148,12 @@ export function cleanAndParseJSON(rawStr: string): any {
 export function ruleBasedClassify(rawText: string, filename: string): { categorie: string; subcategorie: string; title: string; date: string } {
   const combined = (filename + ' ' + rawText.substring(0, 4000)).toLowerCase();
 
+  // Generic bank-statement signal phrases (same signals as the Qwen prompt's STEP 1)
+  // used to guard the gov (7b) and insurance-dictionary (8) branches so a
+  // Crédit Mutuel relevé isn't misfiled via a transaction-row mention of
+  // CAF / AXA / etc. (Golden Rule #6 "archetypal trap").
+  const looksLikeBankStatement = /\b(relev[ée] de compte|solde cr[ée]diteur|c\/c eurocompte)\b/i.test(combined);
+
   let categorie = 'administrative';
   let subcategorie = 'general';
 
@@ -240,13 +246,17 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
     subcategorie = 'impot';
   }
   // 7b. Government & Social Agencies
-  else if (matchEntityDictionary(combined, ['gov'])) {
+  // Bank statements are the archetypal trap (Golden Rule #6): a transaction row
+  // like "VIR CAF ALLOCATIONS FAMILIALES" or "PRLV AXA FRANCE IARD" inside a
+  // Crédit Mutuel relevé must not divert classification to the gov/insurance
+  // branches below. Guard both dictionary-driven clauses with this check.
+  else if (!looksLikeBankStatement && matchEntityDictionary(combined, ['gov'])) {
     const dictGov = matchEntityDictionary(combined, ['gov'])!;
     categorie = dictGov.categorie;
     subcategorie = dictGov.subcategorie;
   }
   // 8. Insurance / Assurances
-  else if (/\b(assurance auto|assurance habitation|prévoyance|prevoyance|responsabilité civile|allianz|macif|maaf|a2a)\b/i.test(combined) || matchEntityDictionary(combined, ['insurance'])) {
+  else if (/\b(assurance auto|assurance habitation|prévoyance|prevoyance|responsabilité civile|allianz|macif|maaf|a2a)\b/i.test(combined) || (!looksLikeBankStatement && matchEntityDictionary(combined, ['insurance']))) {
     categorie = 'insurance';
     if (/\ballianz\b/i.test(combined)) subcategorie = 'allianz';
     else {

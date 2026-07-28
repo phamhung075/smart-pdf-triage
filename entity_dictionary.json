@@ -1,6 +1,6 @@
 {
   "banks": [
-    { "slug": "credit_agricole", "name": "Crédit Agricole", "aliases": ["credit agricole", "ca"] },
+    { "slug": "credit_agricole", "name": "Crédit Agricole", "aliases": ["credit agricole"] },
     { "slug": "caisse_epargne", "name": "Caisse d'Épargne", "aliases": ["caisse d'epargne", "caisse epargne", "bpce"] },
     { "slug": "fortuneo", "name": "Fortuneo", "aliases": ["fortuneo"] },
     { "slug": "hello_bank", "name": "Hello bank!", "aliases": ["hello bank", "hellobank"] },
@@ -15,7 +15,7 @@
     { "slug": "ohm_energie", "name": "Ohm Énergie", "aliases": ["ohm energie", "ohm énergie"] },
     { "slug": "octopus_energy", "name": "Octopus Energy", "aliases": ["octopus energy", "octopus"] },
     { "slug": "vattenfall", "name": "Vattenfall", "aliases": ["vattenfall"] },
-    { "slug": "plenitude", "name": "Plenitude", "aliases": ["plenitude", "eni"] }
+    { "slug": "plenitude", "name": "Plenitude", "aliases": ["plenitude"] }
   ],
   "telecom": [
     { "slug": "orange", "name": "Orange", "aliases": ["orange"] },
