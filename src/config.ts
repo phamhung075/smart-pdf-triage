@@ -24,7 +24,8 @@ export const CONFIG = {
   JSON_REGISTRY_PATH: process.env.PDF_REGISTRY_PATH || path.join(BASE_DIR, 'registry.json'),
   DB_PATH: process.env.PDF_DB_PATH || path.join(BASE_DIR, 'pdf_triage.db'),
   CATEGORIES_FILE: path.join(BASE_DIR, 'categories.json'),
-  
+  ENTITY_DICTIONARY_FILE: path.join(BASE_DIR, 'entity_dictionary.json'),
+
   OLLAMA_HOST: customSettings.ollama_host || process.env.OLLAMA_HOST || 'http://127.0.0.1:11434',
   OLLAMA_MODEL: customSettings.ollama_model || process.env.OLLAMA_MODEL || 'qwen3.5:9b',
   OLLAMA_EMBED_MODEL: process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text',

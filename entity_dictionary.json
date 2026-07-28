@@ -1,0 +1,51 @@
+{
+  "banks": [
+    { "slug": "credit_agricole", "name": "Crédit Agricole", "aliases": ["credit agricole"] },
+    { "slug": "caisse_epargne", "name": "Caisse d'Épargne", "aliases": ["caisse d'epargne", "caisse epargne", "bpce"] },
+    { "slug": "fortuneo", "name": "Fortuneo", "aliases": ["fortuneo"] },
+    { "slug": "hello_bank", "name": "Hello bank!", "aliases": ["hello bank", "hellobank"] },
+    { "slug": "monabanq", "name": "Monabanq", "aliases": ["monabanq"] },
+    { "slug": "n26", "name": "N26", "aliases": ["n26"] },
+    { "slug": "revolut", "name": "Revolut", "aliases": ["revolut"] }
+  ],
+  "energy": [
+    { "slug": "totalenergies", "name": "TotalEnergies", "aliases": ["totalenergies", "total energies", "total direct energie"] },
+    { "slug": "ekwateur", "name": "Ekwateur", "aliases": ["ekwateur"] },
+    { "slug": "mint_energie", "name": "Mint Énergie", "aliases": ["mint energie", "mint énergie"] },
+    { "slug": "ohm_energie", "name": "Ohm Énergie", "aliases": ["ohm energie", "ohm énergie"] },
+    { "slug": "octopus_energy", "name": "Octopus Energy", "aliases": ["octopus energy", "octopus"] },
+    { "slug": "vattenfall", "name": "Vattenfall", "aliases": ["vattenfall"] },
+    { "slug": "plenitude", "name": "Plenitude", "aliases": ["plenitude"] }
+  ],
+  "telecom": [
+    { "slug": "orange", "name": "Orange", "aliases": ["orange"] },
+    { "slug": "sosh", "name": "Sosh", "aliases": ["sosh"] },
+    { "slug": "bouygues_telecom", "name": "Bouygues Telecom", "aliases": ["bouygues telecom", "bouygues", "b&you", "b and you"] },
+    { "slug": "free", "name": "Free", "aliases": ["free", "free mobile"] },
+    { "slug": "red_by_sfr", "name": "RED by SFR", "aliases": ["red by sfr"] }
+  ],
+  "insurance": [
+    { "slug": "axa", "name": "AXA", "aliases": ["axa"] },
+    { "slug": "maif", "name": "MAIF", "aliases": ["maif"] },
+    { "slug": "macif", "name": "MACIF", "aliases": ["macif"] },
+    { "slug": "maaf", "name": "MAAF", "aliases": ["maaf"] },
+    { "slug": "groupama", "name": "Groupama", "aliases": ["groupama"] },
+    { "slug": "matmut", "name": "Matmut", "aliases": ["matmut"] },
+    { "slug": "gmf", "name": "GMF", "aliases": ["gmf"] },
+    { "slug": "generali", "name": "Generali", "aliases": ["generali"] },
+    { "slug": "direct_assurance", "name": "Direct Assurance", "aliases": ["direct assurance"] }
+  ],
+  "gov": [
+    { "slug": "caf", "name": "CAF", "aliases": ["caf", "caisse d'allocations familiales", "allocations familiales"] },
+    { "slug": "cnav", "name": "CNAV", "aliases": ["cnav", "assurance retraite"] },
+    { "slug": "carsat", "name": "CARSAT", "aliases": ["carsat"] },
+    { "slug": "msa", "name": "MSA", "aliases": ["msa", "mutualite sociale agricole"] },
+    { "slug": "prefecture", "name": "Préfecture", "aliases": ["prefecture", "préfecture"] },
+    { "slug": "ants", "name": "ANTS", "aliases": ["ants", "agence nationale des titres securises"] }
+  ],
+  "health": [
+    { "slug": "alan", "name": "Alan", "aliases": ["alan"] },
+    { "slug": "harmonie_mutuelle", "name": "Harmonie Mutuelle", "aliases": ["harmonie mutuelle"] },
+    { "slug": "malakoff_humanis", "name": "Malakoff Humanis", "aliases": ["malakoff humanis", "malakoff", "humanis"] }
+  ]
+}

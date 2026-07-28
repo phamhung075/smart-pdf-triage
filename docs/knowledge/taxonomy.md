@@ -58,6 +58,29 @@ When Qwen returns a category or subcategory that isn't in `categories.json`:
 3. `saveCategoriesConfig()` writes & triggers `CATEGORIES_UPDATED` SSE.
 4. THEN the file is moved. Never reorder these steps.
 
+## Entity dictionary (soft guidance)
+
+`entity_dictionary.json` (project root) is a curated, hand-maintained reference
+of real-world French entities (banks, energy/telecom providers, insurers,
+gov/social agencies, health orgs) that aren't yet real subcategories in
+`categories.json`. It's loaded by `ai.service.ts` and used two ways:
+
+1. Injected into Qwen's system prompt as a "Known real-world entities" hint
+   per category (`buildEntityHintLine` / `buildCategoriesDescriptionStr`), so
+   Qwen prefers a recognized canonical slug over inventing one.
+2. Consulted inside `ruleBasedClassify` (`matchEntityDictionary`) at the same
+   priority points as the Qwen prompt — bank/insurance/vendor/gov/health
+   branches, plus one more chance right before the last-resort filename-word
+   extraction — so the deterministic Ollama-down fallback recognizes the same
+   entities.
+
+This is soft guidance only: a document naming an entity not in the dictionary
+(and not already in `categories.json`) still gets a new subcategory
+auto-created per Rule #5 — the dictionary only improves naming quality, it
+never blocks auto-creation. To add an entity, add a `{slug, name, aliases}`
+entry under the right domain (`banks`, `energy`, `telecom`, `insurance`,
+`gov`, `health`) — no prompt-string or regex editing required.
+
 ## Rename flow
 
 `POST /api/subcategories/rename` — atomically:

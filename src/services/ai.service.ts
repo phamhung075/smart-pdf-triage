@@ -1,7 +1,7 @@
 import { Ollama } from 'ollama';
 import fs from 'fs';
 import { CONFIG } from '../config.js';
-import { DocumentMetadataSchema, DocumentMetadata, CategoriesConfigSchema, CategoryItem, SubcategoryItem } from '../schemas/document.schema.js';
+import { DocumentMetadataSchema, DocumentMetadata, CategoriesConfigSchema, CategoryItem, SubcategoryItem, EntityDictionarySchema, EntityDictionary } from '../schemas/document.schema.js';
 import { logger } from './logger.service.js';
 
 export function getCategoriesConfig() {
@@ -44,6 +44,56 @@ export function saveCategoriesConfig(categories: CategoryItem[]): void {
   if (onCategoryCreatedCallback) {
     try { onCategoryCreatedCallback(); } catch (e) {}
   }
+}
+
+const DOMAIN_CATEGORY_MAP: Record<keyof EntityDictionary, string> = {
+  banks: 'administrative',
+  energy: 'invoices',
+  telecom: 'invoices',
+  insurance: 'insurance',
+  gov: 'administrative',
+  health: 'health'
+};
+
+export const ALL_ENTITY_DOMAINS = Object.keys(DOMAIN_CATEGORY_MAP) as (keyof EntityDictionary)[];
+
+export function getEntityDictionary(): EntityDictionary {
+  if (fs.existsSync(CONFIG.ENTITY_DICTIONARY_FILE)) {
+    try {
+      const raw = fs.readFileSync(CONFIG.ENTITY_DICTIONARY_FILE, 'utf-8');
+      return EntityDictionarySchema.parse(JSON.parse(raw));
+    } catch (e) {
+      console.error("Invalid entity_dictionary.json schema, using empty dictionary", e);
+    }
+  }
+  return EntityDictionarySchema.parse({});
+}
+
+export function buildEntityHintLine(categoryId: string): string {
+  const dict = getEntityDictionary();
+  const domains = ALL_ENTITY_DOMAINS.filter(domain => DOMAIN_CATEGORY_MAP[domain] === categoryId);
+  const entries = domains.flatMap(domain => dict[domain]);
+  if (entries.length === 0) return '';
+  return ` Known real-world entities: ${entries.map(e => `${e.slug} (${e.name})`).join(', ')}.`;
+}
+
+export function matchEntityDictionary(combined: string, domains: (keyof EntityDictionary)[]): { categorie: string; subcategorie: string } | null {
+  const dict = getEntityDictionary();
+  for (const domain of domains) {
+    const categorie = DOMAIN_CATEGORY_MAP[domain];
+    for (const entry of dict[domain]) {
+      const candidates = [entry.name, ...entry.aliases];
+      for (const candidate of candidates) {
+        const escaped = candidate.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (escaped.length === 0) continue;
+        // Use Unicode-aware word boundaries to correctly handle accented characters
+        if (new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'iu').test(combined)) {
+          return { categorie, subcategorie: entry.slug };
+        }
+      }
+    }
+  }
+  return null;
 }
 
 export async function ensureOllamaModel(modelName: string = CONFIG.OLLAMA_MODEL): Promise<boolean> {
@@ -98,6 +148,12 @@ export function cleanAndParseJSON(rawStr: string): any {
 export function ruleBasedClassify(rawText: string, filename: string): { categorie: string; subcategorie: string; title: string; date: string } {
   const combined = (filename + ' ' + rawText.substring(0, 4000)).toLowerCase();
 
+  // Generic bank-statement signal phrases (same signals as the Qwen prompt's STEP 1)
+  // used to guard the gov (7b) and insurance-dictionary (8) branches so a
+  // Crédit Mutuel relevé isn't misfiled via a transaction-row mention of
+  // CAF / AXA / etc. (Golden Rule #6 "archetypal trap").
+  const looksLikeBankStatement = /\b(relev[ée] de compte|solde cr[ée]diteur|c\/c eurocompte)\b/i.test(combined);
+
   let categorie = 'administrative';
   let subcategorie = 'general';
 
@@ -137,6 +193,10 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
     if (/\bameli|assurance maladie|cpam|attestationam\b/i.test(combined)) subcategorie = 'ameli';
     else if (/\bgan\b/i.test(combined)) subcategorie = 'gan_sante';
     else if (/\blai dentail|lai dental\b/i.test(combined)) subcategorie = 'lai_dentail';
+    else {
+      const dictHealth = matchEntityDictionary(combined, ['health']);
+      if (dictHealth) subcategorie = dictHealth.subcategorie;
+    }
   }
   // 3. Housing & Domicile Proof
   else if (/\b(justificatif de domicile|attestation d'hébergement|attestation hebergement|attestation cercles|declarationhonneur|quittance de loyer|foncia|logement)\b/i.test(combined)) {
@@ -167,16 +227,42 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
     else if (/\bedf|engie\b/i.test(combined)) subcategorie = 'edf';
     else if (/\bcdiscount\b/i.test(combined)) subcategorie = 'cdiscount';
     else if (/\bamazon\b/i.test(combined)) subcategorie = 'amazon';
+    else {
+      const dictVendor = matchEntityDictionary(combined, ['telecom', 'energy']);
+      if (dictVendor) {
+        subcategorie = dictVendor.subcategorie;
+      } else {
+        const dictInsuranceViaFacture = matchEntityDictionary(combined, ['insurance']);
+        if (dictInsuranceViaFacture) {
+          categorie = dictInsuranceViaFacture.categorie;
+          subcategorie = dictInsuranceViaFacture.subcategorie;
+        }
+      }
+    }
   }
   // 7. Taxes & Government Income Statements
   else if (/\b(avis[ _-]d[ _-]impot|avis[ _-]d'impot|avis[ _-]impot|déclaration[ _-]d'impôt|taxe[ _-]fonciere|taxe[ _-]foncière|taxe[ _-]d'habitation|revenus[ _-]et[ _-]prelev|prélèvement[ _-]sociaux|prelev[ _-]sociaux|finances[ _-]publiques|dgfip|impôt|impots)\b/i.test(combined)) {
     categorie = 'administrative';
     subcategorie = 'impot';
   }
+  // 7b. Government & Social Agencies
+  // Bank statements are the archetypal trap (Golden Rule #6): a transaction row
+  // like "VIR CAF ALLOCATIONS FAMILIALES" or "PRLV AXA FRANCE IARD" inside a
+  // Crédit Mutuel relevé must not divert classification to the gov/insurance
+  // branches below. Guard both dictionary-driven clauses with this check.
+  else if (!looksLikeBankStatement && matchEntityDictionary(combined, ['gov'])) {
+    const dictGov = matchEntityDictionary(combined, ['gov'])!;
+    categorie = dictGov.categorie;
+    subcategorie = dictGov.subcategorie;
+  }
   // 8. Insurance / Assurances
-  else if (/\b(assurance auto|assurance habitation|prévoyance|prevoyance|responsabilité civile|allianz|macif|maaf|a2a)\b/i.test(combined)) {
+  else if (/\b(assurance auto|assurance habitation|prévoyance|prevoyance|responsabilité civile|allianz|macif|maaf|a2a)\b/i.test(combined) || (!looksLikeBankStatement && matchEntityDictionary(combined, ['insurance']))) {
     categorie = 'insurance';
     if (/\ballianz\b/i.test(combined)) subcategorie = 'allianz';
+    else {
+      const dictInsurance = matchEntityDictionary(combined, ['insurance']);
+      if (dictInsurance) subcategorie = dictInsurance.subcategorie;
+    }
   }
   // 9. Banks / Finance
   else if (/\b(caisse de credit mutuel|crédit mutuel|credit mutuel|ccm marseille|creditmutuel)\b/i.test(combined)) {
@@ -197,6 +283,10 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
   } else if (/\b(la banque postale|banque postale)\b/i.test(combined)) {
     categorie = 'administrative';
     subcategorie = 'la_banque_postale';
+  } else if (matchEntityDictionary(combined, ['banks'])) {
+    const dictBank = matchEntityDictionary(combined, ['banks'])!;
+    categorie = dictBank.categorie;
+    subcategorie = dictBank.subcategorie;
   }
   // 10. Recruitment
   else if (/\b(lettre de motivation|candidature|recrutement|curriculum|cv|postuler|entretien|recommandation)\b/i.test(combined)) {
@@ -236,6 +326,11 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
     else if (/\bamazon\b/i.test(combined)) subcategorie = 'amazon';
     else if (/\bfnac\b/i.test(combined)) subcategorie = 'fnac';
     else if (/\bfoncia\b/i.test(combined)) subcategorie = 'foncia';
+    else if (matchEntityDictionary(combined, ALL_ENTITY_DOMAINS)) {
+      const dictAny = matchEntityDictionary(combined, ALL_ENTITY_DOMAINS)!;
+      categorie = dictAny.categorie;
+      subcategorie = dictAny.subcategorie;
+    }
     else {
       // Dynamic Subcategory Extraction from Filename Words
       const cleanName = filename.replace(/\.pdf$/i, '').replace(/[-_\s]+/g, '_').toLowerCase();
@@ -268,15 +363,20 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
   return { categorie, subcategorie, title, date };
 }
 
+export function buildCategoriesDescriptionStr(categoriesConfig: ReturnType<typeof getCategoriesConfig>): string {
+  return categoriesConfig.categories.map(c => {
+    const subsStr = c.subcategories ? c.subcategories.map(s => s.id).join(', ') : 'none';
+    const entityHint = buildEntityHintLine(c.id);
+    return `- Category '${c.id}' (${c.name}): ${c.description}. Existing subcategories: [${subsStr}].${entityHint}`;
+  }).join('\n');
+}
+
 export async function classifyPDFText(rawText: string, filename: string, previousError?: string): Promise<DocumentMetadata> {
   const ollama = new Ollama({ host: CONFIG.OLLAMA_HOST });
   await ensureOllamaModel(CONFIG.OLLAMA_MODEL);
 
   const categoriesConfig = getCategoriesConfig();
-  const categoriesDescriptionStr = categoriesConfig.categories.map(c => {
-    const subsStr = c.subcategories ? c.subcategories.map(s => s.id).join(', ') : 'none';
-    return `- Category '${c.id}' (${c.name}): ${c.description}. Existing subcategories: [${subsStr}]`;
-  }).join('\n');
+  const categoriesDescriptionStr = buildCategoriesDescriptionStr(categoriesConfig);
 
   const textSnippet = rawText.length > 4000 ? rawText.substring(0, 4000) + '...' : rawText;
 
