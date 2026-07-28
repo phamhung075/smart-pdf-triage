@@ -1,7 +1,7 @@
 import { Ollama } from 'ollama';
 import fs from 'fs';
 import { CONFIG } from '../config.js';
-import { DocumentMetadataSchema, DocumentMetadata, CategoriesConfigSchema, CategoryItem, SubcategoryItem } from '../schemas/document.schema.js';
+import { DocumentMetadataSchema, DocumentMetadata, CategoriesConfigSchema, CategoryItem, SubcategoryItem, EntityDictionarySchema, EntityDictionary } from '../schemas/document.schema.js';
 import { logger } from './logger.service.js';
 
 export function getCategoriesConfig() {
@@ -44,6 +44,55 @@ export function saveCategoriesConfig(categories: CategoryItem[]): void {
   if (onCategoryCreatedCallback) {
     try { onCategoryCreatedCallback(); } catch (e) {}
   }
+}
+
+const DOMAIN_CATEGORY_MAP: Record<keyof EntityDictionary, string> = {
+  banks: 'administrative',
+  energy: 'invoices',
+  telecom: 'invoices',
+  insurance: 'insurance',
+  gov: 'administrative',
+  health: 'health'
+};
+
+export const ALL_ENTITY_DOMAINS = Object.keys(DOMAIN_CATEGORY_MAP) as (keyof EntityDictionary)[];
+
+export function getEntityDictionary(): EntityDictionary {
+  if (fs.existsSync(CONFIG.ENTITY_DICTIONARY_FILE)) {
+    try {
+      const raw = fs.readFileSync(CONFIG.ENTITY_DICTIONARY_FILE, 'utf-8');
+      return EntityDictionarySchema.parse(JSON.parse(raw));
+    } catch (e) {
+      console.error("Invalid entity_dictionary.json schema, using empty dictionary", e);
+    }
+  }
+  return EntityDictionarySchema.parse({});
+}
+
+export function buildEntityHintLine(categoryId: string): string {
+  const dict = getEntityDictionary();
+  const domains = ALL_ENTITY_DOMAINS.filter(domain => DOMAIN_CATEGORY_MAP[domain] === categoryId);
+  const entries = domains.flatMap(domain => dict[domain]);
+  if (entries.length === 0) return '';
+  return ` Known real-world entities: ${entries.map(e => `${e.slug} (${e.name})`).join(', ')}.`;
+}
+
+export function matchEntityDictionary(combined: string, domains: (keyof EntityDictionary)[]): { categorie: string; subcategorie: string } | null {
+  const dict = getEntityDictionary();
+  for (const domain of domains) {
+    const categorie = DOMAIN_CATEGORY_MAP[domain];
+    for (const entry of dict[domain]) {
+      const candidates = [entry.name, ...entry.aliases];
+      for (const candidate of candidates) {
+        const escaped = candidate.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (escaped.length === 0) continue;
+        if (new RegExp(`\\b${escaped}\\b`, 'i').test(combined)) {
+          return { categorie, subcategorie: entry.slug };
+        }
+      }
+    }
+  }
+  return null;
 }
 
 export async function ensureOllamaModel(modelName: string = CONFIG.OLLAMA_MODEL): Promise<boolean> {
