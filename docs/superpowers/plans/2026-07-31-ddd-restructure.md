@@ -2251,6 +2251,7 @@ git commit -m "refactor: extract entity_dictionary.json read to src/infrastructu
 - Create: `src/infrastructure/ollama-client.ts`
 - Modify: `src/services/ai.service.ts` (remove local definitions, rewrite `classifyPDFText`'s Ollama call to use the new wrapper)
 - Modify: `src/server/web_server.ts` (import path for `checkModelCanGenerate`)
+- Modify: `src/services/triage.service.ts` (import path for `generateEmbedding`) — **correction found during execution:** this file also imports `generateEmbedding` from `ai.service.js` and was missing from this list; split its `ai.service.js` import line the same way `web_server.ts`'s is split in Step 3.
 
 **Interfaces:**
 - Produces: `checkModelCanGenerate(modelName: string, host?: string, forceRefresh?: boolean): Promise<{ ok: boolean; error?: string }>`, `ensureOllamaModel(modelName?: string): Promise<boolean>`, `generateEmbedding(text: string): Promise<number[]>` — unchanged behavior, new location. Plus new: `requestClassificationCompletion(system: string, user: string): Promise<{ response: string; thinking?: string }>`.
