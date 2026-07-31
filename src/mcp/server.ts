@@ -6,7 +6,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { getAllDocuments, getDocumentById, updateDocumentRecord } from '../infrastructure/db/database.js';
-import { getCategoriesConfig } from '../services/ai.service.js';
+import { getCategoriesConfig } from '../infrastructure/categories-store.js';
 import { runTriageScan, relocalizeFileIfNeeded, ensureCategoryAndSubcategoryExist, ScanInProgressError } from '../services/triage.service.js';
 import { isForbiddenSubcategory } from '../domain/taxonomy.js';
 import { syncJSONRegistry } from '../infrastructure/json-registry.js';
