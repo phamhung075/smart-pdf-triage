@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
-import { cleanAndParseJSON, matchEntityDictionary, buildEntityHintLine, isGroundedSubcategorySlug } from './ai.service.js';
+import { cleanAndParseJSON, matchEntityDictionary, buildEntityHintLine, isGroundedSubcategorySlug, ruleBasedClassify } from './ai.service.js';
 
 vi.mock('fs');
 
@@ -139,5 +139,80 @@ describe('isGroundedSubcategorySlug', () => {
     expect(
       isGroundedSubcategorySlug('france_travail', 'Contact France Travail for details', 'doc123.pdf')
     ).toBe(true);
+  });
+});
+
+describe('ruleBasedClassify', () => {
+  it('classifies a pay slip under bulletin_salaire (never invoices), extracting employer + DD/MM/YYYY date', () => {
+    const result = ruleBasedClassify(
+      'Bulletin de salaire Pacifique4 Salaire brut 3000 Net a payer 2400 01/03/2023',
+      'bulletin_mars.pdf'
+    );
+    expect(result).toEqual({
+      categorie: 'bulletin_salaire',
+      subcategorie: 'pacifique4',
+      title: 'bulletin mars',
+      date: '2023-03-01',
+    });
+  });
+
+  it('classifies a passport under identity/passeport', () => {
+    const result = ruleBasedClassify('Republique Francaise Passeport N 12AB34567', 'doc.pdf');
+    expect(result.categorie).toBe('identity');
+    expect(result.subcategorie).toBe('passeport');
+  });
+
+  it('classifies a plain tax notice under administrative/impot', () => {
+    const result = ruleBasedClassify(
+      "Direction Generale des Finances Publiques DGFIP Avis d'impot sur le revenu 2023",
+      'impot2023.pdf'
+    );
+    expect(result.categorie).toBe('administrative');
+    expect(result.subcategorie).toBe('impot');
+  });
+
+  it('does NOT misfile a bank statement as impot just because a transaction row mentions impots (Golden Rule #6 guard)', () => {
+    const result = ruleBasedClassify(
+      'RELEVE DE COMPTE Credit Mutuel Marseille PRLV IMPOTS DGFIP SOLDE CREDITEUR 1234.56',
+      'releve.pdf'
+    );
+    expect(result.categorie).toBe('administrative');
+    expect(result.subcategorie).toBe('credit_mutuel');
+  });
+
+  it('classifies a vendor invoice via the hardcoded regex branch, with compact YYYYMMDD date', () => {
+    const result = ruleBasedClassify('Facture SFR n 123456 Total TTC 45.99 EUR 20240512', 'facture.pdf');
+    expect(result).toEqual({
+      categorie: 'invoices',
+      subcategorie: 'sfr',
+      title: 'facture',
+      date: '2024-05-12',
+    });
+  });
+
+  it('classifies a vendor invoice via the entity-dictionary fallback when no hardcoded regex matches', () => {
+    mockEntityDictionary({ energy: [{ slug: 'ekwateur', name: 'Ekwateur', aliases: [] }] });
+    const result = ruleBasedClassify('Facture Ekwateur Total TTC 45 EUR', 'facture2.pdf');
+    expect(result.categorie).toBe('invoices');
+    expect(result.subcategorie).toBe('ekwateur');
+  });
+
+  it('leaves subcategorie as "general" when no signal matches and the filename word is not grounded in the text', () => {
+    const result = ruleBasedClassify(
+      'Hello world this is a test document with nothing recognizable.',
+      'randomfile.pdf'
+    );
+    expect(result.categorie).toBe('administrative');
+    expect(result.subcategorie).toBe('general');
+    expect(result.date).toMatch(/^\d{4}-\d{2}-\d{2}$/); // falls back to today's date — don't assert the exact day
+  });
+
+  it('dynamically accepts a new subcategory slug from the filename when it is genuinely grounded in the text', () => {
+    const result = ruleBasedClassify(
+      'Contrat Veolia Eau - consommation trimestrielle, montant total 32.10 EUR. Merci de votre confiance, Veolia.',
+      'veolia_invoice.pdf'
+    );
+    expect(result.categorie).toBe('administrative');
+    expect(result.subcategorie).toBe('veolia');
   });
 });
