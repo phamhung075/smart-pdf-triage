@@ -26,12 +26,12 @@ Roster:
 
 | Agent | Owns |
 | --- | --- |
-| [pipeline-engineer](docs/agents/pipeline-engineer.md) | triage.service, pdf.service, web_server, SSE, auto-watcher |
-| [classification-expert](docs/agents/classification-expert.md) | ai.service, Qwen prompt, ruleBasedClassify, categories.json |
-| [db-registry-keeper](docs/agents/db-registry-keeper.md) | database.ts, schemas, FTS5, JSON registry mirror |
+| [pipeline-engineer](docs/agents/pipeline-engineer.md) | src/application/{triage-scan,repair-registry,relocalize-document,clear-registry,scan-lock}.ts, src/infrastructure/http/web-server.ts, src/infrastructure/{pdf-extractor,pdf-scanner,pid-lock}.ts, SSE, auto-watcher |
+| [classification-expert](docs/agents/classification-expert.md) | src/domain/{classification,prompt,classification-resolution}.ts, src/application/classify-document.ts, src/infrastructure/entity-dictionary-store.ts, categories.json, entity_dictionary.json |
+| [db-registry-keeper](docs/agents/db-registry-keeper.md) | src/infrastructure/db/database.ts, src/domain/document.schema.ts, src/infrastructure/{categories-store,json-registry}.ts, FTS5 |
 | [ui-frontend](docs/agents/ui-frontend.md) | public/ (HTML/CSS/JS), modals, pills, Toast, SSE consumer |
-| [mcp-integrator](docs/agents/mcp-integrator.md) | mcp/server.ts, tool schemas |
-| [ollama-ops](docs/agents/ollama-ops.md) | Ollama connectivity, /api/ollama/*, model lifecycle |
+| [mcp-integrator](docs/agents/mcp-integrator.md) | src/infrastructure/mcp/mcp-server.ts, tool schemas |
+| [ollama-ops](docs/agents/ollama-ops.md) | src/infrastructure/ollama-client.ts, Ollama connectivity, /api/ollama/*, model lifecycle |
 | [qa-reviewer](docs/agents/qa-reviewer.md) | Rules audit — no code, just verdicts |
 | [docs-curator](docs/agents/docs-curator.md) | docs/ + CLAUDE.md + .claude/agents/*.md shells |
 
@@ -87,13 +87,34 @@ pdf_triage/
 │   └── plugins/
 │       └── superpowers/       # full obra/superpowers repo, cloned
 ├── src/
-│   ├── index.ts               # dispatch: default web, `scan`, `mcp`
-│   ├── config.ts
-│   ├── db/database.ts
-│   ├── schemas/document.schema.ts
-│   ├── services/{pdf,ai,triage,json_registry,logger}.service.ts
-│   ├── server/web_server.ts
-│   └── mcp/server.ts
+│   ├── index.ts                       # composition root: dispatch default web, `scan`, `mcp`
+│   ├── domain/                        # pure logic, zero I/O
+│   │   ├── document.schema.ts         # Zod schemas
+│   │   ├── classification.ts          # ruleBasedClassify, cleanAndParseJSON, entity matching
+│   │   ├── prompt.ts                  # Qwen prompt building
+│   │   ├── classification-resolution.ts  # refine/resolve category & subcategory
+│   │   ├── taxonomy.ts                # isForbiddenSubcategory, computeCanonicalPath
+│   │   └── pdf-text.ts                # cleanExtractedText
+│   ├── application/                   # orchestration / use-cases
+│   │   ├── classify-document.ts       # classifyPDFText orchestrator
+│   │   ├── triage-scan.ts             # runTriageScan
+│   │   ├── repair-registry.ts
+│   │   ├── relocalize-document.ts
+│   │   ├── clear-registry.ts
+│   │   └── scan-lock.ts
+│   └── infrastructure/                # I/O adapters
+│       ├── settings.ts                # CONFIG, settings.json
+│       ├── logger.ts
+│       ├── categories-store.ts        # categories.json read/write
+│       ├── entity-dictionary-store.ts # entity_dictionary.json read
+│       ├── ollama-client.ts
+│       ├── pdf-extractor.ts
+│       ├── pdf-scanner.ts
+│       ├── pid-lock.ts
+│       ├── db/database.ts
+│       ├── json-registry.ts
+│       ├── http/web-server.ts
+│       └── mcp/mcp-server.ts
 ├── public/                    # UI (HTML, CSS, JS)
 └── logs/triage_debug.log
 ```
