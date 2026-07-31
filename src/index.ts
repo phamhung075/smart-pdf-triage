@@ -1,5 +1,5 @@
 import { ensureDirectoriesExist, CONFIG } from './infrastructure/settings.js';
-import { startWebServer } from './server/web_server.js';
+import { startWebServer } from './infrastructure/http/web-server.js';
 import { startMCPServer } from './mcp/server.js';
 import { runTriageScan } from './application/triage-scan.js';
 
