@@ -1,11 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { CONFIG, ensureDirectoriesExist, reloadConfigFromDisk } from '../infrastructure/settings.js';
+import { acquireScanLock } from './scan-lock.js';
 import { getAllDocuments, getDb } from '../infrastructure/db/database.js';
-import { syncJSONRegistry } from '../infrastructure/json-registry.js';
+import { findActualFileOnDisk, moveBackToRaws } from './relocalize-document.js';
 import { isPathInsideDir } from '../domain/taxonomy.js';
-import { moveBackToRaws, findActualFileOnDisk } from '../application/relocalize-document.js';
-import { acquireScanLock } from '../application/scan-lock.js';
+import { syncJSONRegistry } from '../infrastructure/json-registry.js';
 
 export async function clearRegistryAndMoveArchiveToRaws(): Promise<{ countMoved: number }> {
   const release = acquireScanLock();

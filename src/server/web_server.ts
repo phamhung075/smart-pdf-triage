@@ -10,7 +10,7 @@ import { getAllDocuments, getDocumentById, updateDocumentRecord, getDb, getCateg
 import { checkModelCanGenerate } from '../infrastructure/ollama-client.js';
 import { getCategoriesConfig, saveCategoriesConfig, setOnCategoryCreatedCallback } from '../infrastructure/categories-store.js';
 import { syncJSONRegistry } from '../infrastructure/json-registry.js';
-import { clearRegistryAndMoveArchiveToRaws } from '../services/triage.service.js';
+import { clearRegistryAndMoveArchiveToRaws } from '../application/clear-registry.js';
 import { repairRegistry } from '../application/repair-registry.js';
 import { runTriageScan } from '../application/triage-scan.js';
 import { relocalizeFileIfNeeded, findActualFileOnDisk, reclassifyAndRelocalizeDocument, ensureCategoryAndSubcategoryExist } from '../application/relocalize-document.js';
