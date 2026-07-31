@@ -11,7 +11,7 @@ import { getCategoriesConfig, saveCategoriesConfig, setOnCategoryCreatedCallback
 import { syncJSONRegistry } from '../services/json_registry.service.js';
 import { runTriageScan, repairRegistry, relocalizeFileIfNeeded, getPDFsRecursively, findActualFileOnDisk, reclassifyAndRelocalizeDocument, clearRegistryAndMoveArchiveToRaws, ensureCategoryAndSubcategoryExist, isForbiddenSubcategory } from '../services/triage.service.js';
 import { logger } from '../services/logger.service.js';
-import { UpdateDocumentSchema, SystemSettingsSchema, CategoriesConfigSchema } from '../schemas/document.schema.js';
+import { UpdateDocumentSchema, SystemSettingsSchema, CategoriesConfigSchema } from '../domain/document.schema.js';
 
 export function createWebServer(): express.Express {
   const app = express();

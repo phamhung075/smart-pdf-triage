@@ -1,7 +1,7 @@
 import { Ollama } from 'ollama';
 import fs from 'fs';
 import { CONFIG } from '../config.js';
-import { DocumentMetadataSchema, DocumentMetadata, CategoriesConfigSchema, CategoryItem, SubcategoryItem, EntityDictionarySchema, EntityDictionary } from '../schemas/document.schema.js';
+import { DocumentMetadataSchema, DocumentMetadata, CategoriesConfigSchema, CategoryItem, SubcategoryItem, EntityDictionarySchema, EntityDictionary } from '../domain/document.schema.js';
 import { logger } from './logger.service.js';
 
 export function getCategoriesConfig() {
