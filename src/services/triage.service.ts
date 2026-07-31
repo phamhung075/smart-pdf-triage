@@ -6,7 +6,7 @@ import { classifyPDFText, generateEmbedding, getCategoriesConfig, saveCategories
 import { ruleBasedClassify } from '../domain/classification.js';
 import { getDocumentByChecksum, insertDocumentRecord, updateDocumentRecord, getAllDocuments, getDb, getDocumentById } from '../db/database.js';
 import { syncJSONRegistry } from './json_registry.service.js';
-import { logger } from './logger.service.js';
+import { logger } from '../infrastructure/logger.js';
 import { isYearString, isForbiddenSubcategory, isPathInsideDir, computeCanonicalPath } from '../domain/taxonomy.js';
 
 // Cross-process guard: the web server's own auto-watcher/manual-scan/repair/clear

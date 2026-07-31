@@ -2,7 +2,7 @@ import { Ollama } from 'ollama';
 import fs from 'fs';
 import { CONFIG } from '../config.js';
 import { DocumentMetadataSchema, DocumentMetadata, CategoriesConfigSchema, CategoryItem, SubcategoryItem, EntityDictionarySchema, EntityDictionary } from '../domain/document.schema.js';
-import { logger } from './logger.service.js';
+import { logger } from '../infrastructure/logger.js';
 import { cleanAndParseJSON, ruleBasedClassify, isGroundedSubcategorySlug, normalizeSlug, buildCategoriesDescriptionStr } from '../domain/classification.js';
 import { buildClassificationPrompt } from '../domain/prompt.js';
 import { refineClassification, resolveCategory, resolveSubcategory } from '../domain/classification-resolution.js';

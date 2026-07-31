@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import * as pdfPkg from 'pdf-parse';
-import { logger } from './logger.service.js';
+import { logger } from '../infrastructure/logger.js';
 import { cleanExtractedText } from '../domain/pdf-text.js';
 
 export interface ExtractedPDF {
