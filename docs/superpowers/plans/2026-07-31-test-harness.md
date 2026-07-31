@@ -448,11 +448,16 @@ const { generateMock, listMock, pullMock } = vi.hoisted(() => ({
 }));
 
 vi.mock('ollama', () => ({
-  Ollama: vi.fn().mockImplementation(() => ({
-    generate: generateMock,
-    list: listMock,
-    pull: pullMock,
-  })),
+  // NOTE: must be a regular `function`, not an arrow function — ai.service.ts calls
+  // `new Ollama(...)`, and arrow functions can never be used as constructors in JS.
+  // An arrow-function implementation throws "is not a constructor" under `new`.
+  Ollama: vi.fn().mockImplementation(function () {
+    return {
+      generate: generateMock,
+      list: listMock,
+      pull: pullMock,
+    };
+  }),
 }));
 ```
 
