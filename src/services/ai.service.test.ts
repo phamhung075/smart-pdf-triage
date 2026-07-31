@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
-import { cleanAndParseJSON, matchEntityDictionary, buildEntityHintLine } from './ai.service.js';
+import { cleanAndParseJSON, matchEntityDictionary, buildEntityHintLine, isGroundedSubcategorySlug } from './ai.service.js';
 
 vi.mock('fs');
 
@@ -102,5 +102,42 @@ describe('buildEntityHintLine', () => {
   it('returns an empty string when no domain maps to the category', () => {
     mockEntityDictionary({ banks: [{ slug: 'credit_agricole', name: 'Crédit Agricole', aliases: [] }] });
     expect(buildEntityHintLine('totally_made_up_category_xyz')).toBe('');
+  });
+});
+
+describe('isGroundedSubcategorySlug', () => {
+  it('rejects a slug shorter than 3 characters', () => {
+    expect(isGroundedSubcategorySlug('ab', 'ab ab ab', 'file.pdf')).toBe(false);
+  });
+
+  it('rejects a generic/structural word even if it appears in the text', () => {
+    expect(isGroundedSubcategorySlug('page', 'page 1 of page 2', 'file.pdf')).toBe(false);
+  });
+
+  it('rejects a slug built from a personal/household name token', () => {
+    // 'dai' is in CONFIG's default PERSONAL_NAME_DENYLIST
+    expect(isGroundedSubcategorySlug('dai_pham', 'dai pham dai pham', 'file.pdf')).toBe(false);
+  });
+
+  it('rejects a slug with zero occurrences in the document text', () => {
+    expect(isGroundedSubcategorySlug('veolia', 'nothing here', 'random.pdf')).toBe(false);
+  });
+
+  it('rejects a filename-echoed slug that appears only once in the text', () => {
+    expect(
+      isGroundedSubcategorySlug('veolia', 'Veolia mentioned once', 'veolia_invoice.pdf')
+    ).toBe(false);
+  });
+
+  it('accepts a filename-echoed slug that appears at least twice in the text', () => {
+    expect(
+      isGroundedSubcategorySlug('veolia', 'Veolia here and Veolia there', 'veolia_invoice.pdf')
+    ).toBe(true);
+  });
+
+  it('accepts a non-filename-echoed slug that appears once in the text', () => {
+    expect(
+      isGroundedSubcategorySlug('france_travail', 'Contact France Travail for details', 'doc123.pdf')
+    ).toBe(true);
   });
 });
