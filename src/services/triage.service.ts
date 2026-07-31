@@ -2,7 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { CONFIG, BASE_DIR, ensureDirectoriesExist, reloadConfigFromDisk } from '../config.js';
 import { extractPDFContent } from './pdf.service.js';
-import { classifyPDFText, generateEmbedding, ruleBasedClassify, getCategoriesConfig, saveCategoriesConfig } from './ai.service.js';
+import { classifyPDFText, generateEmbedding, getCategoriesConfig, saveCategoriesConfig, getEntityDictionary } from './ai.service.js';
+import { ruleBasedClassify } from '../domain/classification.js';
 import { getDocumentByChecksum, insertDocumentRecord, updateDocumentRecord, getAllDocuments, getDb, getDocumentById } from '../db/database.js';
 import { syncJSONRegistry } from './json_registry.service.js';
 import { logger } from './logger.service.js';
@@ -267,7 +268,7 @@ export async function repairRegistry(): Promise<{
         const isGeneric = !currentSub || currentSub === 'general' || currentSub === 'other' || currentSub === 'divers' || currentCat === 'personal';
 
         if (isGeneric) {
-          const rb = ruleBasedClassify(raw_text || currentText, file);
+          const rb = ruleBasedClassify(raw_text || currentText, file, getEntityDictionary(), CONFIG.PERSONAL_NAME_DENYLIST);
           if (rb.subcategorie !== 'general' && rb.subcategorie !== 'other' && rb.subcategorie !== 'divers') {
             currentCat = rb.categorie;
             currentSub = rb.subcategorie;
