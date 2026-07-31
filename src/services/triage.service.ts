@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { CONFIG, BASE_DIR, ensureDirectoriesExist, reloadConfigFromDisk } from '../infrastructure/settings.js';
-import { extractPDFContent } from './pdf.service.js';
+import { extractPDFContent } from '../infrastructure/pdf-extractor.js';
 import { classifyPDFText } from './ai.service.js';
 import { generateEmbedding } from '../infrastructure/ollama-client.js';
 import { getEntityDictionary } from '../infrastructure/entity-dictionary-store.js';
