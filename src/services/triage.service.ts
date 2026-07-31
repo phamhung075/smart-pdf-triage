@@ -12,6 +12,7 @@ import { syncJSONRegistry } from '../infrastructure/json-registry.js';
 import { logger } from '../infrastructure/logger.js';
 import { isYearString, isForbiddenSubcategory, isPathInsideDir, computeCanonicalPath } from '../domain/taxonomy.js';
 import { getPDFsRecursively, getAllFilesRecursively } from '../infrastructure/pdf-scanner.js';
+import { readActiveLockHolder, acquireProcessLock } from '../infrastructure/pid-lock.js';
 
 // Cross-process guard: the web server's own auto-watcher/manual-scan/repair/clear
 // routes already serialize themselves via an in-memory flag, but that can't stop a
@@ -20,15 +21,6 @@ import { getPDFsRecursively, getAllFilesRecursively } from '../infrastructure/pd
 // files. This file-based lock makes that cross-process case fail fast instead of racing.
 const SCAN_LOCK_FILE = path.join(BASE_DIR, '.scan.lock');
 
-function isLockHolderRunning(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err: any) {
-    return err.code === 'EPERM';
-  }
-}
-
 export class ScanInProgressError extends Error {
   constructor(public readonly holderPid: number) {
     super(`A scan/repair/clear operation is already in progress (held by process ${holderPid}). Try again shortly.`);
@@ -36,20 +28,11 @@ export class ScanInProgressError extends Error {
 }
 
 function acquireScanLock(): () => void {
-  if (fs.existsSync(SCAN_LOCK_FILE)) {
-    const existingPid = parseInt(fs.readFileSync(SCAN_LOCK_FILE, 'utf-8').trim(), 10);
-    if (!isNaN(existingPid) && existingPid !== process.pid && isLockHolderRunning(existingPid)) {
-      throw new ScanInProgressError(existingPid);
-    }
+  const holderPid = readActiveLockHolder(SCAN_LOCK_FILE);
+  if (holderPid !== null) {
+    throw new ScanInProgressError(holderPid);
   }
-  fs.writeFileSync(SCAN_LOCK_FILE, String(process.pid), 'utf-8');
-  return () => {
-    try {
-      if (fs.existsSync(SCAN_LOCK_FILE) && fs.readFileSync(SCAN_LOCK_FILE, 'utf-8').trim() === String(process.pid)) {
-        fs.unlinkSync(SCAN_LOCK_FILE);
-      }
-    } catch (e) {}
-  };
+  return acquireProcessLock(SCAN_LOCK_FILE);
 }
 
 export interface TriageResultItem {

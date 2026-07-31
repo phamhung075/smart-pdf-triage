@@ -15,6 +15,7 @@ import { getPDFsRecursively } from '../infrastructure/pdf-scanner.js';
 import { isForbiddenSubcategory } from '../domain/taxonomy.js';
 import { logger } from '../infrastructure/logger.js';
 import { UpdateDocumentSchema, SystemSettingsSchema, CategoriesConfigSchema } from '../domain/document.schema.js';
+import { readActiveLockHolder, acquireProcessLock } from '../infrastructure/pid-lock.js';
 
 export function createWebServer(): express.Express {
   const app = express();
@@ -564,35 +565,17 @@ function safeParseJSON(str: string, fallback: any) {
 
 const PID_LOCK_FILE = path.join(BASE_DIR, '.server.lock');
 
-function isProcessRunning(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err: any) {
-    return err.code === 'EPERM';
-  }
-}
-
 // Prevent two instances of this server (e.g. a stale tsx-watch child that hasn't
 // exited yet plus a freshly-spawned one) from running their auto-watchers
 // concurrently against the same __raws/__archive files.
 function acquireSingleInstanceLock(): void {
-  if (fs.existsSync(PID_LOCK_FILE)) {
-    const existingPid = parseInt(fs.readFileSync(PID_LOCK_FILE, 'utf-8').trim(), 10);
-    if (!isNaN(existingPid) && isProcessRunning(existingPid)) {
-      console.error(`Another instance of this server is already running (PID ${existingPid}). Refusing to start a second instance — stop it first, or delete ${PID_LOCK_FILE} if it's stale.`);
-      process.exit(1);
-    }
+  const holderPid = readActiveLockHolder(PID_LOCK_FILE);
+  if (holderPid !== null) {
+    console.error(`Another instance of this server is already running (PID ${holderPid}). Refusing to start a second instance — stop it first, or delete ${PID_LOCK_FILE} if it's stale.`);
+    process.exit(1);
   }
-  fs.writeFileSync(PID_LOCK_FILE, String(process.pid), 'utf-8');
 
-  const releaseLock = () => {
-    try {
-      if (fs.existsSync(PID_LOCK_FILE) && fs.readFileSync(PID_LOCK_FILE, 'utf-8').trim() === String(process.pid)) {
-        fs.unlinkSync(PID_LOCK_FILE);
-      }
-    } catch (e) {}
-  };
+  const releaseLock = acquireProcessLock(PID_LOCK_FILE);
   process.on('exit', releaseLock);
   process.on('SIGINT', () => { releaseLock(); process.exit(0); });
   process.on('SIGTERM', () => { releaseLock(); process.exit(0); });
