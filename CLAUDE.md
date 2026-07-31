@@ -104,3 +104,5 @@ pdf_triage/
 - `npm run scan` — one-shot triage scan.
 - `npm run mcp` — MCP stdio server.
 - `npm run build` — `tsc`.
+- `npm test` — run the Vitest unit test suite (pure classification/path/schema logic; see `docs/superpowers/specs/2026-07-31-test-harness-design.md`).
+- `npm run test:watch` — Vitest in watch mode for local development.
