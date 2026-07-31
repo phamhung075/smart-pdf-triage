@@ -9,7 +9,9 @@
     "start": "tsx watch --exclude \"*.db\" --exclude \"*.db-journal\" --exclude \"*.db-shm\" --exclude \"*.db-wal\" --exclude \"registry.json\" --exclude \"categories.json\" --exclude \"settings.json\" --exclude \"logs/**\" --exclude \".server.lock\" --exclude \".scan.lock\" src/index.ts",
     "scan": "tsx src/index.ts scan",
     "mcp": "tsx src/index.ts mcp",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "pdf",
@@ -39,6 +41,7 @@
     "@types/pdf-parse": "^1.1.4",
     "@types/sqlite3": "^3.1.11",
     "tsx": "^4.19.3",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.10"
   }
 }
