@@ -36,6 +36,40 @@ public/                         # UI (index.html, app.js, style.css)
 
 Cross-module edits: do them, but ping [qa-reviewer](../agents/qa-reviewer.md) via a review pass.
 
+## Layering (domain / application / infrastructure)
+
+`src/` is organized into three layers, each with a one-way dependency rule:
+
+- **`src/domain/`** — pure logic, zero I/O. No `fs`, no network calls, no reading
+  `CONFIG` or environment variables. Functions take data as parameters and return
+  data. Includes classification rules (`classification.ts`), Qwen prompt building
+  (`prompt.ts`), category/subcategory resolution (`classification-resolution.ts`),
+  taxonomy/path helpers (`taxonomy.ts`), text cleanup (`pdf-text.ts`), and the Zod
+  schemas (`document.schema.ts`).
+- **`src/application/`** — orchestration ("use cases"). Fetches data via
+  infrastructure, calls domain functions to decide what to do, calls infrastructure
+  again to persist or act. This is where `classifyPDFText`, `runTriageScan`,
+  `repairRegistry`, the relocalize/clear-registry flows, and the cross-process
+  scan lock live.
+- **`src/infrastructure/`** — all I/O adapters: SQLite (`db/database.ts`), the
+  filesystem-backed settings/categories/entity-dictionary/JSON-registry stores,
+  the Ollama client, the PDF extractor/scanner, the shared PID-lock helper, the
+  Express HTTP server (`http/web-server.ts`), and the MCP stdio server
+  (`mcp/mcp-server.ts`).
+
+Dependency direction: `infrastructure/` and `application/` may import from
+`domain/`; `domain/` never imports from the other two. `application/` may import
+from `infrastructure/`; `infrastructure/` never imports from `application/`.
+`src/index.ts` is the composition root — the only place that wires a concrete
+infrastructure adapter (e.g. `startWebServer`) to the application layer.
+
+This structure exists so the pure decision logic (which category, which
+subcategory, is this slug grounded, what canonical path) can be unit-tested
+without mocking `fs`/`CONFIG`/Ollama — see
+`docs/superpowers/specs/2026-07-31-test-harness-design.md` (Phase 1) and
+`docs/superpowers/specs/2026-07-31-ddd-restructure-design.md` (Phase 2, this
+restructuring).
+
 ## Data flow (steady state)
 
 1. `web_server.ts` boots, static-serves `public/`, opens SSE endpoints, starts the 10 s auto-watcher.
