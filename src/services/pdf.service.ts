@@ -3,23 +3,13 @@ import path from 'path';
 import crypto from 'crypto';
 import * as pdfPkg from 'pdf-parse';
 import { logger } from './logger.service.js';
+import { cleanExtractedText } from '../domain/pdf-text.js';
 
 export interface ExtractedPDF {
   checksum: string;
   raw_text: string;
   numpages: number;
   info: any;
-}
-
-export function cleanExtractedText(text: string, filename?: string): string {
-  if (!text || text.trim().length < 10) {
-    return '';
-  }
-  return text
-    .replace(/\0/g, '')
-    .replace(/\r\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
 }
 
 async function safePdfParse(buffer: Buffer): Promise<{ text: string; numpages: number; info: any }> {
