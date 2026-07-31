@@ -7,7 +7,7 @@ import { Ollama } from 'ollama';
 import { z } from 'zod';
 import { CONFIG, BASE_DIR, updateConfig } from '../infrastructure/settings.js';
 import { getAllDocuments, getDocumentById, updateDocumentRecord, getDb, getCategorySubcategoryStats } from '../infrastructure/db/database.js';
-import { checkModelCanGenerate } from '../services/ai.service.js';
+import { checkModelCanGenerate } from '../infrastructure/ollama-client.js';
 import { getCategoriesConfig, saveCategoriesConfig, setOnCategoryCreatedCallback } from '../infrastructure/categories-store.js';
 import { syncJSONRegistry } from '../infrastructure/json-registry.js';
 import { runTriageScan, repairRegistry, relocalizeFileIfNeeded, getPDFsRecursively, findActualFileOnDisk, reclassifyAndRelocalizeDocument, clearRegistryAndMoveArchiveToRaws, ensureCategoryAndSubcategoryExist } from '../services/triage.service.js';
