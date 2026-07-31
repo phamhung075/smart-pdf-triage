@@ -39,3 +39,6 @@ Thumbs.db
 
 # Local worktree sessions
 .claude/worktrees/
+
+# Subagent-driven-development scratch workspace (ledgers, briefs, review packages)
+.superpowers/
