@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { CONFIG, BASE_DIR, updateConfig } from '../infrastructure/settings.js';
 import { getAllDocuments, getDocumentById, updateDocumentRecord, getDb, getCategorySubcategoryStats } from '../infrastructure/db/database.js';
 import { getCategoriesConfig, saveCategoriesConfig, setOnCategoryCreatedCallback, checkModelCanGenerate } from '../services/ai.service.js';
-import { syncJSONRegistry } from '../services/json_registry.service.js';
+import { syncJSONRegistry } from '../infrastructure/json-registry.js';
 import { runTriageScan, repairRegistry, relocalizeFileIfNeeded, getPDFsRecursively, findActualFileOnDisk, reclassifyAndRelocalizeDocument, clearRegistryAndMoveArchiveToRaws, ensureCategoryAndSubcategoryExist } from '../services/triage.service.js';
 import { isForbiddenSubcategory } from '../domain/taxonomy.js';
 import { logger } from '../infrastructure/logger.js';

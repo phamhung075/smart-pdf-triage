@@ -9,7 +9,7 @@ import { getAllDocuments, getDocumentById, updateDocumentRecord } from '../infra
 import { getCategoriesConfig } from '../services/ai.service.js';
 import { runTriageScan, relocalizeFileIfNeeded, ensureCategoryAndSubcategoryExist, ScanInProgressError } from '../services/triage.service.js';
 import { isForbiddenSubcategory } from '../domain/taxonomy.js';
-import { syncJSONRegistry } from '../services/json_registry.service.js';
+import { syncJSONRegistry } from '../infrastructure/json-registry.js';
 import { UpdateDocumentSchema } from '../domain/document.schema.js';
 
 export async function startMCPServer(): Promise<void> {
