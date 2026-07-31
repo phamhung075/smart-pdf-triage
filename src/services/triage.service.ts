@@ -12,7 +12,7 @@ import { logger } from '../infrastructure/logger.js';
 import { isYearString, isPathInsideDir } from '../domain/taxonomy.js';
 import { getPDFsRecursively, getAllFilesRecursively } from '../infrastructure/pdf-scanner.js';
 import { relocalizeFileIfNeeded, moveBackToRaws, findActualFileOnDisk } from '../application/relocalize-document.js';
-import { ScanInProgressError, acquireScanLock } from '../application/scan-lock.js';
+import { acquireScanLock } from '../application/scan-lock.js';
 
 export interface TriageResultItem {
   filename: string;
