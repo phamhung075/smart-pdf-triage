@@ -7,7 +7,8 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { getAllDocuments, getDocumentById, updateDocumentRecord } from '../infrastructure/db/database.js';
 import { getCategoriesConfig } from '../infrastructure/categories-store.js';
-import { runTriageScan, relocalizeFileIfNeeded, ensureCategoryAndSubcategoryExist, ScanInProgressError } from '../services/triage.service.js';
+import { runTriageScan, ScanInProgressError } from '../services/triage.service.js';
+import { relocalizeFileIfNeeded, ensureCategoryAndSubcategoryExist } from '../application/relocalize-document.js';
 import { isForbiddenSubcategory } from '../domain/taxonomy.js';
 import { syncJSONRegistry } from '../infrastructure/json-registry.js';
 import { UpdateDocumentSchema } from '../domain/document.schema.js';
