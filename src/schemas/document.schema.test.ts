@@ -4,6 +4,8 @@ import {
   SystemSettingsSchema,
   CategoriesConfigSchema,
   EntityDictionarySchema,
+  UpdateDocumentSchema,
+  SearchQuerySchema,
 } from './document.schema.js';
 
 describe('DocumentMetadataSchema', () => {
@@ -72,7 +74,7 @@ describe('CategoriesConfigSchema', () => {
       ],
     };
     const result = CategoriesConfigSchema.parse(input);
-    expect(result.categories[0].subcategories[0].subcategories[0].id).toBe('sfr_mobile');
+    expect(result.categories[0]?.subcategories?.[0]?.subcategories?.[0]?.id).toBe('sfr_mobile');
   });
 
   it('rejects a category with no id', () => {
@@ -96,5 +98,36 @@ describe('EntityDictionarySchema', () => {
   it('defaults an entity item aliases to an empty array when omitted', () => {
     const result = EntityDictionarySchema.parse({ banks: [{ slug: 'ca', name: 'Crédit Agricole' }] });
     expect(result.banks[0].aliases).toEqual([]);
+  });
+});
+
+describe('UpdateDocumentSchema', () => {
+  it('accepts a partial update with only some fields set', () => {
+    const result = UpdateDocumentSchema.parse({ title: 'New Title', tags: ['a', 'b'] });
+    expect(result.title).toBe('New Title');
+    expect(result.tags).toEqual(['a', 'b']);
+    expect(result.category).toBeUndefined();
+  });
+
+  it('accepts an empty object (every field optional)', () => {
+    expect(() => UpdateDocumentSchema.parse({})).not.toThrow();
+  });
+});
+
+describe('SearchQuerySchema', () => {
+  it('defaults query to "", mode to "hybrid", limit to 50 when omitted', () => {
+    const result = SearchQuerySchema.parse({});
+    expect(result.query).toBe('');
+    expect(result.mode).toBe('hybrid');
+    expect(result.limit).toBe(50);
+  });
+
+  it('rejects an invalid mode value', () => {
+    expect(() => SearchQuerySchema.parse({ mode: 'fuzzy' })).toThrow();
+  });
+
+  it('rejects a non-positive limit', () => {
+    expect(() => SearchQuerySchema.parse({ limit: 0 })).toThrow();
+    expect(() => SearchQuerySchema.parse({ limit: -5 })).toThrow();
   });
 });

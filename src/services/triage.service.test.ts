@@ -3,6 +3,11 @@ import path from 'path';
 import { isYearString, isForbiddenSubcategory, computeCanonicalPath } from './triage.service.js';
 import { CONFIG } from '../config.js';
 
+// Unlike the other test files, this one does NOT mock fs/CONFIG — computeCanonicalPath's
+// assertions are built from the real CONFIG.OUTPUT_ROOT_DIR (see below), so they're correct
+// regardless of what this machine's settings.json contains. isYearString and
+// isForbiddenSubcategory don't touch CONFIG at all.
+
 describe('isYearString', () => {
   it('accepts a plain 4-digit year', () => {
     expect(isYearString('2023')).toBe(true);

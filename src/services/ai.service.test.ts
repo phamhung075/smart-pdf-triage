@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
+import { Ollama } from 'ollama';
 import { cleanAndParseJSON, matchEntityDictionary, buildEntityHintLine, isGroundedSubcategorySlug, ruleBasedClassify } from './ai.service.js';
 
 vi.mock('fs');
@@ -24,7 +25,7 @@ vi.mock('ollama', () => ({
 }));
 
 afterEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
 });
 
 function mockEntityDictionary(contents: object) {
@@ -88,6 +89,14 @@ describe('matchEntityDictionary', () => {
     });
     const result = matchEntityDictionary('extrait de compte société générale paris', ['banks']);
     expect(result).toEqual({ categorie: 'administrative', subcategorie: 'societe_generale' });
+  });
+
+  it('does NOT match an accented entity name against unaccented search text — this is why every accented entity in entity_dictionary.json must also ship an unaccented alias', () => {
+    mockEntityDictionary({
+      banks: [{ slug: 'credit_agricole', name: 'Crédit Agricole', aliases: [] }],
+    });
+    const result = matchEntityDictionary('extrait de compte credit agricole paris', ['banks']);
+    expect(result).toBeNull();
   });
 
   it('does not match a name as a substring of a longer word (word-boundary correctness)', () => {
@@ -242,6 +251,20 @@ describe('classifyPDFText', () => {
     generateMock.mockReset();
     listMock.mockReset();
     pullMock.mockReset();
+    // The module-level `afterEach(() => vi.resetAllMocks())` (see top of file) also wipes the
+    // hoisted `Ollama` constructor's `.mockImplementation(...)` set up in the `vi.mock('ollama', ...)`
+    // factory above — resetAllMocks() clears implementations, not just call history, on every
+    // mock function, including this one. Without re-establishing it here, `new Ollama(...)` inside
+    // ai.service.ts would return a bare `{}` (mock constructors with no implementation just return
+    // `this` under `new`), so `.generate`/`.list`/`.pull` would be undefined and every test below
+    // would silently fall through to the ruleBasedClassify catch-path instead of exercising Ollama.
+    vi.mocked(Ollama).mockImplementation(function () {
+      return {
+        generate: generateMock,
+        list: listMock,
+        pull: pullMock,
+      } as any;
+    } as any);
     vi.mocked(fs.existsSync).mockReturnValue(false); // categories.json/entity_dictionary.json absent -> built-in defaults
     listMock.mockResolvedValue({ models: [{ name: 'qwen3.5:9b' }] });
   });

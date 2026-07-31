@@ -11,7 +11,8 @@
     "mcp": "tsx src/index.ts mcp",
     "build": "tsc",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.test.json"
   },
   "keywords": [
     "pdf",
