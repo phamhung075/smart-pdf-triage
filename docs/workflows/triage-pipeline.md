@@ -1,6 +1,6 @@
 # 🔄 Triage Pipeline
 
-Entry: `runTriageScan(onProgress?)` in `src/services/triage.service.ts`.
+Entry: `runTriageScan(onProgress?)` in `src/application/triage-scan.ts`.
 
 ## Trigger points
 

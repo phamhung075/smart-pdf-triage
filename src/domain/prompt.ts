@@ -3,7 +3,7 @@ export function buildClassificationPrompt(
   filename: string,
   rawText: string,
   previousError?: string
-): { system: string; user: string } {
+): { system: string; user: string; textSnippetLength: number } {
   const textSnippet = rawText.length > 4000 ? rawText.substring(0, 4000) + '...' : rawText;
 
   const system = `You are an expert AI document archivist and classifier. 
@@ -100,5 +100,5 @@ Respond ONLY with raw JSON matching this structure:
     user += `\n\n⚠️ PREVIOUS ATTEMPT FEEDBACK (FIX THIS PROBLEM):\nThe previous classification attempt for this document encountered an error: "${previousError}".\nPlease carefully analyze the document text and fix this issue. You MUST provide a specific, valid Category and Subcategory slug that is genuinely grounded in the Document Text Content (e.g. 'credit_mutuel', 'impot', 'ameli', 'sfr') — do NOT derive it from the filename. If no real entity is identifiable in the text, it is correct to return 'general' rather than guessing.`;
   }
 
-  return { system, user };
+  return { system, user, textSnippetLength: textSnippet.length };
 }

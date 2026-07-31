@@ -1,6 +1,6 @@
 # 🗑️ Clear Registry
 
-Entry: `clearRegistryAndMoveArchiveToRaws()` in `src/services/triage.service.ts`. HTTP: `DELETE /api/documents`.
+Entry: `clearRegistryAndMoveArchiveToRaws()` in `src/application/clear-registry.ts`. HTTP: `DELETE /api/documents`.
 
 ## Contract
 

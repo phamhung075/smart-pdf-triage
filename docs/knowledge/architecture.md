@@ -4,35 +4,55 @@
 
 ```
 src/
-├── index.ts                    # Dispatcher: default web, `scan`, `mcp`
-├── config.ts                   # CONFIG + settings.json load/save
-├── db/database.ts              # SQLite open, schema init, CRUD, FTS5
-├── schemas/document.schema.ts  # Zod contracts (validation only)
-├── services/
-│   ├── pdf.service.ts          # extractPDFContent() + SHA-256 checksum
-│   ├── ai.service.ts           # Ollama classify + rule-based fallback + taxonomy CRUD
-│   ├── triage.service.ts       # Pipeline + repair + relocalize + clear
-│   ├── json_registry.service.ts # SQLite → registry.json mirror
-│   └── logger.service.ts       # Color terminal + file logs
-├── server/web_server.ts        # Express + SSE + REST + 10s watcher
-└── mcp/server.ts               # MCP tools over stdio
-public/                         # UI (index.html, app.js, style.css)
+├── index.ts                              # Dispatcher: default web, `scan`, `mcp` (composition root)
+├── domain/
+│   ├── document.schema.ts                # Zod contracts (validation only)
+│   ├── classification.ts                 # ruleBasedClassify + fallback classifier logic
+│   ├── prompt.ts                         # Qwen system/user prompt building
+│   ├── classification-resolution.ts      # refineClassification, resolveCategory, resolveSubcategory
+│   ├── taxonomy.ts                       # isYearString, isForbiddenSubcategory, computeCanonicalPath, isPathInsideDir
+│   └── pdf-text.ts                       # cleanExtractedText
+├── application/
+│   ├── classify-document.ts              # classifyPDFText (orchestrator)
+│   ├── triage-scan.ts                    # runTriageScan
+│   ├── repair-registry.ts                # repairRegistry
+│   ├── relocalize-document.ts            # relocalizeFileIfNeeded, moveBackToRaws, reclassifyAndRelocalizeDocument
+│   ├── clear-registry.ts                 # clearRegistryAndMoveArchiveToRaws
+│   └── scan-lock.ts                      # acquireScanLock (cross-process lock)
+├── infrastructure/
+│   ├── settings.ts                       # CONFIG + settings.json load/save
+│   ├── logger.ts                         # Color terminal + file logs
+│   ├── categories-store.ts               # getCategoriesConfig / saveCategoriesConfig
+│   ├── entity-dictionary-store.ts        # getEntityDictionary
+│   ├── ollama-client.ts                  # ensureOllamaModel, checkModelCanGenerate, generateEmbedding
+│   ├── pdf-extractor.ts                  # extractPDFContent() + SHA-256 checksum
+│   ├── pdf-scanner.ts                    # getPDFsRecursively, getAllFilesRecursively
+│   ├── pid-lock.ts                       # shared PID-lock-file helper
+│   ├── json-registry.ts                  # SQLite → registry.json mirror
+│   ├── db/database.ts                    # SQLite open, schema init, CRUD, FTS5
+│   ├── http/web-server.ts                # Express + SSE + REST + 10s watcher
+│   └── mcp/mcp-server.ts                 # MCP tools over stdio
+public/                                   # UI (index.html, app.js, style.css)
 ```
 
 ## Ownership boundaries
 
-| Module                     | Owner agent            | May write to             |
-| -------------------------- | ---------------------- | ------------------------ |
-| `services/pdf.service.ts`  | pipeline-engineer      | itself                   |
-| `services/ai.service.ts`   | classification-expert  | itself, categories.json  |
-| `services/triage.service.ts` | pipeline-engineer    | itself, uses DB + AI     |
-| `services/json_registry.service.ts` | db-registry-keeper | itself, registry.json |
-| `db/database.ts`           | db-registry-keeper     | itself, pdf_triage.db    |
-| `schemas/*`                | classification-expert (data) + db-registry-keeper (records) | itself |
-| `server/web_server.ts`     | pipeline-engineer      | itself                   |
-| `mcp/server.ts`            | mcp-integrator         | itself                   |
-| `public/*`                 | ui-frontend            | itself                   |
-| Ollama connectivity        | ollama-ops             | ai.service.ts (limited)  |
+| Module                                                                                                              | Owner agent                                                  | May write to                              |
+| --------------------------------------------------------------------------------------------------------------------| ---------------------------------------------------------------| -------------------------------------------|
+| `domain/classification.ts`, `domain/prompt.ts`, `domain/classification-resolution.ts`                              | classification-expert                                          | itself                                     |
+| `application/classify-document.ts`                                                                                  | classification-expert                                          | itself, categories.json                    |
+| `infrastructure/categories-store.ts`                                                                                | classification-expert                                          | itself, categories.json                    |
+| `infrastructure/entity-dictionary-store.ts`                                                                         | classification-expert                                          | itself, entity_dictionary.json             |
+| `infrastructure/pdf-extractor.ts`                                                                                   | pipeline-engineer                                               | itself                                     |
+| `domain/taxonomy.ts`, `domain/pdf-text.ts`                                                                          | pipeline-engineer                                               | itself                                     |
+| `application/triage-scan.ts`, `application/repair-registry.ts`, `application/relocalize-document.ts`, `application/clear-registry.ts`, `application/scan-lock.ts` | pipeline-engineer | itself, uses DB + AI |
+| `infrastructure/json-registry.ts`                                                                                   | db-registry-keeper                                              | itself, registry.json                      |
+| `infrastructure/db/database.ts`                                                                                     | db-registry-keeper                                              | itself, pdf_triage.db                      |
+| `domain/document.schema.ts`                                                                                         | classification-expert (data) + db-registry-keeper (records)    | itself                                     |
+| `infrastructure/http/web-server.ts`                                                                                 | pipeline-engineer                                               | itself                                     |
+| `infrastructure/mcp/mcp-server.ts`                                                                                  | mcp-integrator                                                  | itself                                     |
+| `public/*`                                                                                                          | ui-frontend                                                     | itself                                     |
+| Ollama connectivity                                                                                                 | ollama-ops                                                      | infrastructure/ollama-client.ts (limited)  |
 
 Cross-module edits: do them, but ping [qa-reviewer](../agents/qa-reviewer.md) via a review pass.
 
@@ -58,10 +78,12 @@ Cross-module edits: do them, but ping [qa-reviewer](../agents/qa-reviewer.md) vi
   (`mcp/mcp-server.ts`).
 
 Dependency direction: `infrastructure/` and `application/` may import from
-`domain/`; `domain/` never imports from the other two. `application/` may import
-from `infrastructure/`; `infrastructure/` never imports from `application/`.
-`src/index.ts` is the composition root — the only place that wires a concrete
-infrastructure adapter (e.g. `startWebServer`) to the application layer.
+`domain/`; `domain/` never imports from the other two. `application/` may
+import from `infrastructure/`. The two inbound adapters —
+`infrastructure/http/web-server.ts` and `infrastructure/mcp/mcp-server.ts` —
+import application use-cases to serve requests; no other infrastructure
+module imports from `application/`. `src/index.ts` is the composition root
+that wires everything together at startup.
 
 This structure exists so the pure decision logic (which category, which
 subcategory, is this slug grounded, what canonical path) can be unit-tested
@@ -72,14 +94,14 @@ restructuring).
 
 ## Data flow (steady state)
 
-1. `web_server.ts` boots, static-serves `public/`, opens SSE endpoints, starts the 10 s auto-watcher.
-2. Auto-watcher calls `runTriageScan(broadcast)` when `__raws` has PDFs.
-3. `triage.service.ts` walks `__raws`, for each PDF:
-   - `pdf.service.extractPDFContent()` → `{checksum, raw_text, numpages, info}`.
+1. `infrastructure/http/web-server.ts` boots, static-serves `public/`, opens SSE endpoints, starts the 10 s auto-watcher.
+2. Auto-watcher calls `runTriageScan(broadcast)` (`application/triage-scan.ts`) when `__raws` has PDFs.
+3. `runTriageScan` walks `__raws`, for each PDF:
+   - `extractPDFContent()` (`infrastructure/pdf-extractor.ts`) → `{checksum, raw_text, numpages, info}`.
    - Dedup check via `getDocumentByChecksum(checksum)`.
-   - `ai.service.classifyPDFText()` → validated `DocumentMetadata`.
+   - `classifyPDFText()` (`application/classify-document.ts`) → validated `DocumentMetadata`.
    - `insertDocumentRecord()` → SQLite + FTS5.
-   - `relocalizeFileIfNeeded()` → moves file to canonical path.
+   - `relocalizeFileIfNeeded()` (`application/relocalize-document.ts`) → moves file to canonical path.
    - `updateDocumentRecord(id, { new_path, status: 'MOVED' })`.
    - `syncJSONRegistry()`.
 4. SSE clients receive `FILE_PROGRESS`, `FILE_COMPLETED`/`FAILED`, then `SCAN_COMPLETED`.
@@ -87,7 +109,7 @@ restructuring).
 
 ## MCP path
 
-`src/mcp/server.ts` exposes tools (`search_documents`, `get_full_document_text`, `update_document_metadata`, `trigger_triage`, `list_categories`) over stdio. Runs as a separate process (`npm run mcp`); shares the SQLite DB and categories.json but does NOT bring up the web server.
+`src/infrastructure/mcp/mcp-server.ts` exposes tools (`search_documents`, `get_full_document_text`, `update_document_metadata`, `trigger_triage`, `list_categories`) over stdio. Runs as a separate process (`npm run mcp`); shares the SQLite DB and categories.json but does NOT bring up the web server.
 
 ## SQLite tables
 
@@ -99,7 +121,7 @@ restructuring).
 
 1. `settings.json` (project-local, editable via Settings modal or `PUT /api/config`).
 2. Environment variables (`PDF_INPUT_DIR`, `PDF_OUTPUT_DIR`, `PDF_REGISTRY_PATH`, `PDF_DB_PATH`, `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_EMBED_MODEL`, `PORT`).
-3. Defaults in `src/config.ts`.
+3. Defaults in `src/infrastructure/settings.ts`.
 
 ## Threading model
 

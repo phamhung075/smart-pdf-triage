@@ -4,7 +4,7 @@ Three storage surfaces, one truth (SQLite), two mirrors (JSON registry, categori
 
 ## `documents` table
 
-Primary record. Created in `src/db/database.ts` `initSchema()`.
+Primary record. Created in `src/infrastructure/db/database.ts` `initSchema()`.
 
 | Column              | Type     | Notes                                             |
 | ------------------- | -------- | ------------------------------------------------- |

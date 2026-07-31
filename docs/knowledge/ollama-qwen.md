@@ -12,7 +12,7 @@ Only Qwen 3.5 is supported. Legacy models (`qwen2.5:7b`, `deepseek-r1:8b`) were 
 
 ## Ensuring the model is present
 
-`ensureOllamaModel()` in `src/services/ai.service.ts`:
+`ensureOllamaModel()` in `src/infrastructure/ollama-client.ts`:
 
 1. `ollama.list()` — check if a model whose name starts with or includes `qwen3.5:9b` is loaded.
 2. If not, `ollama.pull()` it.

@@ -93,6 +93,10 @@ function countSlugOccurrences(slug: string, text: string): number {
 export function isGroundedSubcategorySlug(slug: string, rawText: string, filename: string, personalNameDenylist: string[]): boolean {
   if (!slug || slug.length < MIN_GROUNDED_SLUG_LENGTH) return false;
   if (GENERIC_SLUG_DENYLIST.has(slug)) return false;
+  // The document owner's own name appears in nearly every header/footer (postal address,
+  // "cher Monsieur/Madame", etc.), so a naive grounding check would mistake the owner for
+  // the actual issuer/entity. personalNameDenylist filters the owner's own name out so it
+  // is never mistaken for a grounding match.
   const denylistSet = new Set(personalNameDenylist.map(n => n.toLowerCase().trim()));
   if (slug.split('_').some(part => denylistSet.has(part))) return false;
 

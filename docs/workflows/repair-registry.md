@@ -1,6 +1,6 @@
 # 🔧 Repair Registry
 
-Entry: `repairRegistry()` in `src/services/triage.service.ts`. Trigger: `POST /api/registry/repair`.
+Entry: `repairRegistry()` in `src/application/repair-registry.ts`. Trigger: `POST /api/registry/repair`.
 
 ## Purpose
 

@@ -11,7 +11,7 @@ const { generateMock, listMock, pullMock } = vi.hoisted(() => ({
 }));
 
 vi.mock('ollama', () => ({
-  // NOTE: must be a regular `function`, not an arrow function — ai.service.ts calls
+  // NOTE: must be a regular `function`, not an arrow function — classify-document.ts calls
   // `new Ollama(...)`, and arrow functions can never be used as constructors in JS.
   // An arrow-function implementation throws "is not a constructor" under `new`.
   Ollama: vi.fn().mockImplementation(function () {
@@ -37,9 +37,9 @@ describe('classifyPDFText', () => {
     // hoisted `Ollama` constructor's `.mockImplementation(...)` set up in the `vi.mock('ollama', ...)`
     // factory above — resetAllMocks() clears implementations, not just call history, on every
     // mock function, including this one. Without re-establishing it here, `new Ollama(...)` inside
-    // ai.service.ts would return a bare `{}` (mock constructors with no implementation just return
-    // `this` under `new`), so `.generate`/`.list`/`.pull` would be undefined and every test below
-    // would silently fall through to the ruleBasedClassify catch-path instead of exercising Ollama.
+    // classify-document.ts would return a bare `{}` (mock constructors with no implementation just
+    // return `this` under `new`), so `.generate`/`.list`/`.pull` would be undefined and every test
+    // below would silently fall through to the ruleBasedClassify catch-path instead of exercising Ollama.
     vi.mocked(Ollama).mockImplementation(function () {
       return {
         generate: generateMock,

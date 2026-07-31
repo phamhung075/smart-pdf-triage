@@ -84,7 +84,7 @@ When a user relocalizes via the modal with an explicit reason (`Why Category Wro
 
 ## 19. Never invent field names
 
-Zod schemas in `src/schemas/document.schema.ts` are the contract. All AI JSON output MUST validate via `DocumentMetadataSchema`. Both `categorie` (French) and `subcategorie` are the canonical keys in the AI payload; DB columns are `category`/`subcategory` (English).
+Zod schemas in `src/domain/document.schema.ts` are the contract. All AI JSON output MUST validate via `DocumentMetadataSchema`. Both `categorie` (French) and `subcategorie` are the canonical keys in the AI payload; DB columns are `category`/`subcategory` (English).
 
 ## 20. Determinism where it counts
 

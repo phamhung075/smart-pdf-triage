@@ -694,7 +694,7 @@ async function openRelocalizeModal(docId) {
 }
 
 // Golden Rule #4: general/other/divers/empty/year-only are never valid final
-// subcategories. Mirrors src/services/triage.service.ts's isForbiddenSubcategory.
+// subcategories. Mirrors src/domain/taxonomy.ts's isForbiddenSubcategory.
 function isForbiddenSubcategory(subcategory) {
   if (!subcategory) return true;
   const normalized = String(subcategory).toLowerCase().trim();

@@ -4,7 +4,7 @@ Source of truth: `categories.json` at project root. Rules for classification: [c
 
 ## Baseline categories
 
-Defined as defaults in `getCategoriesConfig()` (`src/services/ai.service.ts`) when `categories.json` is missing or invalid.
+Defined as defaults in `getCategoriesConfig()` (`src/infrastructure/categories-store.ts`) when `categories.json` is missing or invalid.
 
 | Slug              | Name                | Purpose                                    |
 | ----------------- | ------------------- | ------------------------------------------ |
@@ -63,7 +63,7 @@ When Qwen returns a category or subcategory that isn't in `categories.json`:
 `entity_dictionary.json` (project root) is a curated, hand-maintained reference
 of real-world French entities (banks, energy/telecom providers, insurers,
 gov/social agencies, health orgs) that aren't yet real subcategories in
-`categories.json`. It's loaded by `ai.service.ts` and used two ways:
+`categories.json`. It's loaded by `entity-dictionary-store.ts` and used two ways:
 
 1. Injected into Qwen's system prompt as a "Known real-world entities" hint
    per category (`buildEntityHintLine` / `buildCategoriesDescriptionStr`), so

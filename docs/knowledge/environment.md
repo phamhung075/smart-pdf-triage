@@ -4,7 +4,7 @@
 
 | Key                | Source                             | Default                                              |
 | ------------------ | ---------------------------------- | ---------------------------------------------------- |
-| `BASE_DIR`         | hard-coded in `src/config.ts`      | `D:/DaiHung/__projet/__master/pdf_triage`            |
+| `BASE_DIR`         | hard-coded in `src/infrastructure/settings.ts` | `D:/DaiHung/__projet/__master/pdf_triage`            |
 | `INPUT_DIR`        | `settings.json` › env › default    | `<BASE_DIR>/input` (default) — production: `C:\Users\daihu\OneDrive\GiayTo\Hung\__raws` |
 | `OUTPUT_ROOT_DIR`  | `settings.json` › env › default    | `<BASE_DIR>/organized` (default) — production: `C:\Users\daihu\OneDrive\GiayTo\Hung\__archive` |
 | `JSON_REGISTRY_PATH` | env › default                    | `<BASE_DIR>/registry.json`                           |

@@ -1,6 +1,6 @@
 # 📍 Relocalize & Re-classify
 
-Entry: `reclassifyAndRelocalizeDocument(id, explicitCategory?, explicitSubcategory?, userFeedbackReason?)` in `src/services/triage.service.ts`. HTTP: `POST /api/documents/:id/relocalize`.
+Entry: `reclassifyAndRelocalizeDocument(id, explicitCategory?, explicitSubcategory?, userFeedbackReason?)` in `src/application/relocalize-document.ts`. HTTP: `POST /api/documents/:id/relocalize`.
 
 ## Two modes
 

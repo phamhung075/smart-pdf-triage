@@ -1,6 +1,6 @@
 # 🔌 API Reference
 
-Source: `src/server/web_server.ts`. Default port `3000`.
+Source: `src/infrastructure/http/web-server.ts`. Default port `3000`.
 
 ## System
 
@@ -54,7 +54,7 @@ Source: `src/server/web_server.ts`. Default port `3000`.
 
 Not a route — a `setInterval(…, 10000)` in `createWebServer()`. When `__raws` has PDFs and no scan is running, runs `runTriageScan(broadcast)`.
 
-## MCP tools (`src/mcp/server.ts`)
+## MCP tools (`src/infrastructure/mcp/mcp-server.ts`)
 
 Exposed over stdio when `npm run mcp`. Same DB as the web server; do not run both in dev without confirming that's what you want.
 

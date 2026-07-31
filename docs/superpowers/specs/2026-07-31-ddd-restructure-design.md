@@ -158,6 +158,9 @@ signature-adjustment pass, not a coverage change:
 - Manual interactive check of the dashboard is the user's own follow-up
   (Golden Rule: `npm run dev` is never run by the assistant).
 - Final whole-branch review specifically checks: no domain file imports
-  `fs`/`CONFIG`/network; no application file talks to `fs`/SQLite/Ollama
-  directly without going through an infrastructure import; CLAUDE.md's
-  ownership table paths all resolve to real files.
+  `fs`/`CONFIG`/network; application files may talk to `fs`/SQLite directly
+  where Section 3 assigns them to (`relocalize-document.ts`,
+  `clear-registry.ts`, `repair-registry.ts` — this is expected/correct for
+  those specific files, not a violation), and every application file's
+  Ollama access goes through the `infrastructure/ollama-client.ts` import;
+  CLAUDE.md's ownership table paths all resolve to real files.

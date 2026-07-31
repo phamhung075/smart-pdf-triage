@@ -68,7 +68,7 @@ export function resolveSubcategory(
   rawText: string,
   filename: string,
   personalNameDenylist: string[]
-): { subcategoryId: string; isNew: boolean; newSubcategory?: SubcategoryItem } {
+): { subcategoryId: string; isNew: boolean; newSubcategory?: SubcategoryItem; rawSubSlug: string } {
   let rawSubSlug = normalizeSlug(rawSubcategorie || '');
   // Clean dates from subcategory slugs
   rawSubSlug = rawSubSlug.replace(/_\d{4,8}$/g, '').replace(/\d{4,8}$/g, '');
@@ -88,14 +88,14 @@ export function resolveSubcategory(
       );
 
   if (matchedSub) {
-    return { subcategoryId: matchedSub.id, isNew: false };
+    return { subcategoryId: matchedSub.id, isNew: false, rawSubSlug };
   }
 
   if (FORBIDDEN_SUBCATEGORIES.has(rawSubSlug)) {
     // Forbidden sentinel value — never auto-create it as a real taxonomy entry. Return it
     // as-is so the caller's strict fail guard (Golden Rule #4) BLOCKs the file and keeps
     // it in __raws.
-    return { subcategoryId: rawSubSlug, isNew: false };
+    return { subcategoryId: rawSubSlug, isNew: false, rawSubSlug };
   }
 
   if (!isGroundedSubcategorySlug(rawSubSlug, rawText, filename, personalNameDenylist)) {
@@ -103,8 +103,10 @@ export function resolveSubcategory(
     // slug that isn't actually grounded in the document's own content — a filename echo,
     // gibberish, or a generic/structural word. Refuse to pollute categories.json with it;
     // resolve to 'general' so the caller's BLOCK guard catches it instead of silently
-    // mis-filing the document under a garbage subcategory.
-    return { subcategoryId: 'general', isNew: false };
+    // mis-filing the document under a garbage subcategory. `rawSubSlug` is still returned
+    // (alongside the forced 'general' subcategoryId) so the caller can log the actual
+    // rejected slug value for diagnosability.
+    return { subcategoryId: 'general', isNew: false, rawSubSlug };
   }
 
   const newSubName = rawSubSlug
@@ -119,5 +121,5 @@ export function resolveSubcategory(
   };
 
   matchedCategory.subcategories.push(newSubObj);
-  return { subcategoryId: rawSubSlug, isNew: true, newSubcategory: newSubObj };
+  return { subcategoryId: rawSubSlug, isNew: true, newSubcategory: newSubObj, rawSubSlug };
 }

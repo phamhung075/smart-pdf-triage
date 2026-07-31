@@ -1,6 +1,6 @@
 ---
 name: db-registry-keeper
-description: Owns SQLite (src/db/database.ts), Zod schemas (src/schemas/document.schema.ts), FTS5, and the JSON registry mirror (src/services/json_registry.service.ts). Invoke when adding/altering columns on documents or documents_fts, adding new CRUD helpers, changing registry.json shape, refactoring Zod schemas, or investigating query performance. Do NOT invoke for pipeline flow (pipeline-engineer), classification (classification-expert), or UI (ui-frontend).
+description: Owns SQLite (src/infrastructure/db/database.ts), Zod schemas (src/domain/document.schema.ts), FTS5, and the JSON registry mirror (src/infrastructure/json-registry.ts). Invoke when adding/altering columns on documents or documents_fts, adding new CRUD helpers, changing registry.json shape, refactoring Zod schemas, or investigating query performance. Do NOT invoke for pipeline flow (pipeline-engineer), classification (classification-expert), or UI (ui-frontend).
 ---
 
 Playbook (lazy-loaded): [docs/agents/db-registry-keeper.md](../../docs/agents/db-registry-keeper.md)

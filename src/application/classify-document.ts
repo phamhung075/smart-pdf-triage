@@ -15,10 +15,10 @@ export async function classifyPDFText(rawText: string, filename: string, previou
   const dictionary = getEntityDictionary();
   const categoriesDescriptionStr = buildCategoriesDescriptionStr(categoriesConfig, dictionary);
 
-  const { system: systemPrompt, user: userPromptBuilt } = buildClassificationPrompt(categoriesDescriptionStr, filename, rawText, previousError);
+  const { system: systemPrompt, user: userPromptBuilt, textSnippetLength } = buildClassificationPrompt(categoriesDescriptionStr, filename, rawText, previousError);
   let userPrompt = userPromptBuilt;
 
-  logger.debug('OLLAMA_AI', `Sending classification request to model '${CONFIG.OLLAMA_MODEL}'`, { filename, rawTextLength: rawText.length });
+  logger.debug('OLLAMA_AI', `Sending classification request to model '${CONFIG.OLLAMA_MODEL}'`, { filename, textSnippetLength });
 
   let validated: DocumentMetadata;
 
@@ -57,12 +57,12 @@ export async function classifyPDFText(rawText: string, filename: string, previou
   }
   validated.categorie = matchedCategory.id;
 
-  const { subcategoryId, isNew: isNewSubcategory } = resolveSubcategory(matchedCategory, validated.subcategorie, rawText, filename, CONFIG.PERSONAL_NAME_DENYLIST);
+  const { subcategoryId, isNew: isNewSubcategory, rawSubSlug } = resolveSubcategory(matchedCategory, validated.subcategorie, rawText, filename, CONFIG.PERSONAL_NAME_DENYLIST);
   if (isNewSubcategory) {
     logger.info('OLLAMA_AI', `Auto-created new subcategory '${subcategoryId}' under '${matchedCategory.id}' BEFORE move`, { filename });
     saveCategoriesConfig(categoriesConfig.categories);
   } else if (subcategoryId === 'general' && validated.subcategorie !== 'general') {
-    logger.warn('OLLAMA_AI', `Rejected ungrounded subcategory slug for ${filename} (not found in document content) — forcing 'general' to trigger BLOCK guard`);
+    logger.warn('OLLAMA_AI', `Rejected ungrounded subcategory slug '${rawSubSlug}' for ${filename} (not found in document content) — forcing 'general' to trigger BLOCK guard`);
   }
   validated.subcategorie = subcategoryId;
 

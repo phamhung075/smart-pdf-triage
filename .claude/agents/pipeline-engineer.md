@@ -1,6 +1,6 @@
 ---
 name: pipeline-engineer
-description: Owns the PDF triage pipeline, HTTP surface, and SSE broadcasts (src/services/triage.service.ts, src/services/pdf.service.ts, src/server/web_server.ts). Invoke when modifying scan/repair/relocalize/clear-registry flows, adding or changing /api/* routes, tweaking the 10s auto-watcher, editing SSE event types, or fixing file-move / canonical-path bugs. Do NOT invoke for Ollama prompt work (use classification-expert), SQLite schema (use db-registry-keeper), UI (use ui-frontend), or MCP tools (use mcp-integrator).
+description: Owns the PDF triage pipeline, HTTP surface, and SSE broadcasts (src/application/{triage-scan,repair-registry,relocalize-document,clear-registry}.ts, src/infrastructure/pdf-extractor.ts, src/infrastructure/http/web-server.ts). Invoke when modifying scan/repair/relocalize/clear-registry flows, adding or changing /api/* routes, tweaking the 10s auto-watcher, editing SSE event types, or fixing file-move / canonical-path bugs. Do NOT invoke for Ollama prompt work (use classification-expert), SQLite schema (use db-registry-keeper), UI (use ui-frontend), or MCP tools (use mcp-integrator).
 ---
 
 Playbook (lazy-loaded): [docs/agents/pipeline-engineer.md](../../docs/agents/pipeline-engineer.md)

@@ -10,7 +10,7 @@
 - With nested subcategory: `__archive/<cat>/<sub1>/<sub2>/<YYYY>/<file>.pdf`
 - Without a specific subcategory: **not allowed** for a completed doc (Golden Rule #4). Repair will move the file back to `__raws`.
 
-Implemented in `computeCanonicalPath()` (`src/services/triage.service.ts`).
+Implemented in `computeCanonicalPath()` (`src/domain/taxonomy.ts`).
 
 ## Year resolution
 

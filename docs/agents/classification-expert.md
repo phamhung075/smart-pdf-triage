@@ -36,7 +36,7 @@ See [docs/skills.md](../skills.md). Default stack for this agent:
 ## Forbidden
 
 - Change SQLite schema — hand off to `db-registry-keeper`.
-- Edit the pipeline itself (`triage.service.ts`) — hand off to `pipeline-engineer`. You may propose the API shape you need.
+- Edit the pipeline itself (`application/triage-scan.ts`, `application/repair-registry.ts`, `application/relocalize-document.ts`, `application/clear-registry.ts`) — hand off to `pipeline-engineer`. You may propose the API shape you need.
 - Change UI-visible category labels without notifying `ui-frontend`.
 - Reintroduce non-Qwen 3.5 models (Golden Rule #14).
 
