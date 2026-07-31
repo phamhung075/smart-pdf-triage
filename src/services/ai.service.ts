@@ -1,24 +1,12 @@
 import { Ollama } from 'ollama';
-import fs from 'fs';
 import { CONFIG } from '../infrastructure/settings.js';
-import { DocumentMetadataSchema, DocumentMetadata, SubcategoryItem, EntityDictionarySchema, EntityDictionary } from '../domain/document.schema.js';
+import { DocumentMetadataSchema, DocumentMetadata, SubcategoryItem } from '../domain/document.schema.js';
 import { logger } from '../infrastructure/logger.js';
 import { cleanAndParseJSON, ruleBasedClassify, isGroundedSubcategorySlug, normalizeSlug, buildCategoriesDescriptionStr } from '../domain/classification.js';
 import { buildClassificationPrompt } from '../domain/prompt.js';
 import { refineClassification, resolveCategory, resolveSubcategory } from '../domain/classification-resolution.js';
 import { getCategoriesConfig, saveCategoriesConfig } from '../infrastructure/categories-store.js';
-
-export function getEntityDictionary(): EntityDictionary {
-  if (fs.existsSync(CONFIG.ENTITY_DICTIONARY_FILE)) {
-    try {
-      const raw = fs.readFileSync(CONFIG.ENTITY_DICTIONARY_FILE, 'utf-8');
-      return EntityDictionarySchema.parse(JSON.parse(raw));
-    } catch (e) {
-      console.error("Invalid entity_dictionary.json schema, using empty dictionary", e);
-    }
-  }
-  return EntityDictionarySchema.parse({});
-}
+import { getEntityDictionary } from '../infrastructure/entity-dictionary-store.js';
 
 interface ModelHealthCacheEntry {
   modelName: string;
