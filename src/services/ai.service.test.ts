@@ -4,30 +4,15 @@ import { cleanAndParseJSON, matchEntityDictionary, buildEntityHintLine } from '.
 
 vi.mock('fs');
 
-let mockDictValue: any = null;
-
-beforeEach(() => {
-  mockDictValue = null;
-  // Setup fs mocks before each test
-  vi.mocked(fs.existsSync).mockImplementation(() => mockDictValue !== null);
-  vi.mocked(fs.readFileSync).mockImplementation(() => JSON.stringify(mockDictValue || {}) as any);
-});
-
 afterEach(() => {
   vi.clearAllMocks();
 });
 
 function mockEntityDictionary(contents: object) {
-  // Ensure all required domains are present in the mocked dictionary
-  mockDictValue = {
-    banks: [],
-    energy: [],
-    telecom: [],
-    insurance: [],
-    gov: [],
-    health: [],
-    ...contents,
-  };
+  vi.mocked(fs.existsSync).mockImplementation((p) =>
+    String(p).endsWith('entity_dictionary.json')
+  );
+  vi.mocked(fs.readFileSync).mockImplementation(() => JSON.stringify(contents) as any);
 }
 
 describe('cleanAndParseJSON', () => {
@@ -66,7 +51,7 @@ describe('matchEntityDictionary', () => {
     mockEntityDictionary({
       banks: [{ slug: 'credit_agricole', name: 'Crédit Agricole', aliases: ['ca'] }],
     });
-    const result = matchEntityDictionary('extrait de compte credit agricole paris', ['banks']);
+    const result = matchEntityDictionary('extrait de compte crédit agricole paris', ['banks']);
     expect(result).toEqual({ categorie: 'administrative', subcategorie: 'credit_agricole' });
   });
 

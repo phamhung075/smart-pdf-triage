@@ -177,7 +177,7 @@ describe('matchEntityDictionary', () => {
     mockEntityDictionary({
       banks: [{ slug: 'credit_agricole', name: 'Crédit Agricole', aliases: ['ca'] }],
     });
-    const result = matchEntityDictionary('extrait de compte credit agricole paris', ['banks']);
+    const result = matchEntityDictionary('extrait de compte crédit agricole paris', ['banks']);
     expect(result).toEqual({ categorie: 'administrative', subcategorie: 'credit_agricole' });
   });
 
