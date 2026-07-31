@@ -11,6 +11,7 @@ import { getDocumentByChecksum, insertDocumentRecord, updateDocumentRecord, getA
 import { syncJSONRegistry } from '../infrastructure/json-registry.js';
 import { logger } from '../infrastructure/logger.js';
 import { isYearString, isForbiddenSubcategory, isPathInsideDir, computeCanonicalPath } from '../domain/taxonomy.js';
+import { getPDFsRecursively, getAllFilesRecursively } from '../infrastructure/pdf-scanner.js';
 
 // Cross-process guard: the web server's own auto-watcher/manual-scan/repair/clear
 // routes already serialize themselves via an in-memory flag, but that can't stop a
@@ -59,45 +60,6 @@ export interface TriageResultItem {
   subcategory: string;
   newPath: string;
   status: string;
-}
-
-export function getPDFsRecursively(dir: string, ignoreDir?: string): string[] {
-  let results: string[] = [];
-  if (!fs.existsSync(dir)) return results;
-
-  const items = fs.readdirSync(dir, { withFileTypes: true });
-
-  for (const item of items) {
-    const fullPath = path.join(dir, item.name);
-
-    if (ignoreDir && isPathInsideDir(fullPath, ignoreDir)) {
-      continue;
-    }
-
-    if (item.isDirectory()) {
-      results = results.concat(getPDFsRecursively(fullPath, ignoreDir));
-    } else if (item.isFile() && item.name.toLowerCase().endsWith('.pdf')) {
-      results.push(fullPath);
-    }
-  }
-  return results;
-}
-
-export function getAllFilesRecursively(dir: string): string[] {
-  let results: string[] = [];
-  if (!fs.existsSync(dir)) return results;
-
-  const items = fs.readdirSync(dir, { withFileTypes: true });
-
-  for (const item of items) {
-    const fullPath = path.join(dir, item.name);
-    if (item.isDirectory()) {
-      results = results.concat(getAllFilesRecursively(fullPath));
-    } else if (item.isFile() && item.name.toLowerCase().endsWith('.pdf')) {
-      results.push(fullPath);
-    }
-  }
-  return results;
 }
 
 // Moves sourcePath to desiredTargetPath without the check-then-act race a plain
