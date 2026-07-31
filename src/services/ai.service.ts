@@ -5,6 +5,7 @@ import { DocumentMetadataSchema, DocumentMetadata, CategoriesConfigSchema, Categ
 import { logger } from './logger.service.js';
 import { cleanAndParseJSON, ruleBasedClassify, isGroundedSubcategorySlug, normalizeSlug, buildCategoriesDescriptionStr } from '../domain/classification.js';
 import { buildClassificationPrompt } from '../domain/prompt.js';
+import { refineClassification, resolveCategory, resolveSubcategory } from '../domain/classification-resolution.js';
 
 export function getCategoriesConfig() {
   if (fs.existsSync(CONFIG.CATEGORIES_FILE)) {
@@ -178,102 +179,23 @@ export async function classifyPDFText(rawText: string, filename: string, previou
     });
   }
 
-  // Refine Category & Subcategory using ruleBasedClassify if AI returned 'general', 'personal', 'other', or 'correspondence' for a Tax/Bank document
-  if (validated.categorie === 'personal' || validated.categorie === 'other' || validated.subcategorie === 'general' || (validated.categorie === 'correspondence' && /impot|tax/i.test(filename))) {
-    const rb = ruleBasedClassify(rawText, filename, dictionary, CONFIG.PERSONAL_NAME_DENYLIST);
-    if (validated.categorie === 'personal' || validated.categorie === 'other' || !validated.categorie || (validated.categorie === 'correspondence' && rb.categorie === 'administrative')) {
-      validated.categorie = rb.categorie;
-    }
-    if (validated.subcategorie === 'general' && rb.subcategorie !== 'general') {
-      validated.subcategorie = rb.subcategorie;
-    }
-  }
+  validated = refineClassification(validated, rawText, filename, dictionary, CONFIG.PERSONAL_NAME_DENYLIST);
 
-  // Normalize category ID & DYNAMICALLY AUTO-CREATE NEW CATEGORY IF NOT FOUND BEFORE MOVING FILE
-  const rawCatSlug = normalizeSlug(validated.categorie || 'administrative');
-  let matchedCategory = categoriesConfig.categories.find(c =>
-    c.id === rawCatSlug || (c.aliases && c.aliases.some(a => rawCatSlug.includes(a)))
-  );
-
-  if (!matchedCategory) {
-    const newCatSlug = rawCatSlug;
-    const newCatName = newCatSlug
-      .split('_')
-      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ');
-
-    logger.info('OLLAMA_AI', `Auto-created new category '${newCatSlug}' for ${filename} BEFORE move`);
-
-    const newCatObj: CategoryItem = {
-      id: newCatSlug,
-      name: newCatName,
-      description: `Category auto-created for ${newCatName}`,
-      aliases: [newCatSlug],
-      subcategories: []
-    };
-
-    categoriesConfig.categories.push(newCatObj);
-    matchedCategory = newCatObj;
+  const { category: matchedCategory, isNew: isNewCategory } = resolveCategory(categoriesConfig, validated.categorie);
+  if (isNewCategory) {
+    logger.info('OLLAMA_AI', `Auto-created new category '${matchedCategory.id}' for ${filename} BEFORE move`);
     saveCategoriesConfig(categoriesConfig.categories);
   }
   validated.categorie = matchedCategory.id;
 
-  let rawSubSlug = normalizeSlug(validated.subcategorie || '');
-  // Clean dates from subcategory slugs
-  rawSubSlug = rawSubSlug.replace(/_\d{4,8}$/g, '').replace(/\d{4,8}$/g, '');
-
-  if (!rawSubSlug || /^\d{4}$/.test(rawSubSlug)) {
-    rawSubSlug = 'general';
-  }
-
-  if (!matchedCategory.subcategories) {
-    matchedCategory.subcategories = [];
-  }
-
-  const FORBIDDEN_SUBCATEGORIES = new Set(['general', 'other', 'divers']);
-
-  let matchedSub = FORBIDDEN_SUBCATEGORIES.has(rawSubSlug)
-    ? undefined
-    : matchedCategory.subcategories.find(s =>
-        s.id === rawSubSlug || (s.aliases && s.aliases.some(a => rawSubSlug.includes(a)))
-      );
-
-  if (matchedSub) {
-    validated.subcategorie = matchedSub.id;
-  } else if (FORBIDDEN_SUBCATEGORIES.has(rawSubSlug)) {
-    // Forbidden sentinel value — never auto-create it as a real taxonomy entry. Leave
-    // validated.subcategorie as-is so triage.service.ts's strict fail guard (Golden Rule
-    // #4) BLOCKs the file and keeps it in __raws.
-    validated.subcategorie = rawSubSlug;
-  } else if (!isGroundedSubcategorySlug(rawSubSlug, rawText, filename, CONFIG.PERSONAL_NAME_DENYLIST)) {
-    // The model (or the ruleBasedClassify refinement pass below it) invented a
-    // "specific"-looking slug that isn't actually grounded in the document's own content —
-    // a filename echo, gibberish, or a generic/structural word. Refuse to pollute
-    // categories.json with it; force 'general' so the BLOCK guard above catches it instead
-    // of silently mis-filing the document under a garbage subcategory.
-    logger.warn('OLLAMA_AI', `Rejected ungrounded subcategory slug '${rawSubSlug}' for ${filename} (not found in document content) — forcing 'general' to trigger BLOCK guard`);
-    validated.subcategorie = 'general';
-  } else {
-    // DYNAMIC AUTO-CREATION OF NEW SUBCATEGORY BEFORE FILE MOVE!
-    logger.info('OLLAMA_AI', `Auto-created new subcategory '${rawSubSlug}' under '${matchedCategory.id}' BEFORE move`, { filename });
-    
-    const newSubName = rawSubSlug
-      .split('_')
-      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ');
-
-    const newSubObj: SubcategoryItem = {
-      id: rawSubSlug,
-      name: newSubName,
-      aliases: [rawSubSlug]
-    };
-
-    matchedCategory.subcategories.push(newSubObj);
-    validated.subcategorie = rawSubSlug;
-
-    // Save permanently to categories.json BEFORE moving file
+  const { subcategoryId, isNew: isNewSubcategory } = resolveSubcategory(matchedCategory, validated.subcategorie, rawText, filename, CONFIG.PERSONAL_NAME_DENYLIST);
+  if (isNewSubcategory) {
+    logger.info('OLLAMA_AI', `Auto-created new subcategory '${subcategoryId}' under '${matchedCategory.id}' BEFORE move`, { filename });
     saveCategoriesConfig(categoriesConfig.categories);
+  } else if (subcategoryId === 'general' && validated.subcategorie !== 'general') {
+    logger.warn('OLLAMA_AI', `Rejected ungrounded subcategory slug for ${filename} (not found in document content) — forcing 'general' to trigger BLOCK guard`);
   }
+  validated.subcategorie = subcategoryId;
 
   logger.info('OLLAMA_AI', `Classification success`, {
     filename,
