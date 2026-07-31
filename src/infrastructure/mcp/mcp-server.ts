@@ -5,14 +5,14 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { getAllDocuments, getDocumentById, updateDocumentRecord } from '../infrastructure/db/database.js';
-import { getCategoriesConfig } from '../infrastructure/categories-store.js';
-import { runTriageScan } from '../application/triage-scan.js';
-import { ScanInProgressError } from '../application/scan-lock.js';
-import { relocalizeFileIfNeeded, ensureCategoryAndSubcategoryExist } from '../application/relocalize-document.js';
-import { isForbiddenSubcategory } from '../domain/taxonomy.js';
-import { syncJSONRegistry } from '../infrastructure/json-registry.js';
-import { UpdateDocumentSchema } from '../domain/document.schema.js';
+import { getAllDocuments, getDocumentById, updateDocumentRecord } from '../db/database.js';
+import { getCategoriesConfig } from '../categories-store.js';
+import { runTriageScan } from '../../application/triage-scan.js';
+import { ScanInProgressError } from '../../application/scan-lock.js';
+import { relocalizeFileIfNeeded, ensureCategoryAndSubcategoryExist } from '../../application/relocalize-document.js';
+import { isForbiddenSubcategory } from '../../domain/taxonomy.js';
+import { syncJSONRegistry } from '../json-registry.js';
+import { UpdateDocumentSchema } from '../../domain/document.schema.js';
 
 export async function startMCPServer(): Promise<void> {
   const server = new Server(
