@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { CONFIG } from '../infrastructure/settings.js';
-import { getAllDocuments, DocumentRecord } from '../db/database.js';
+import { getAllDocuments, DocumentRecord } from '../infrastructure/db/database.js';
 
 export interface JSONRegistryEntry {
   id: number;

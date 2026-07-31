@@ -1,6 +1,6 @@
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
-import { CONFIG } from '../infrastructure/settings.js';
+import { CONFIG } from '../settings.js';
 import fs from 'fs';
 
 let dbInstance: Database | null = null;

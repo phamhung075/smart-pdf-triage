@@ -4,7 +4,7 @@ import { CONFIG, BASE_DIR, ensureDirectoriesExist, reloadConfigFromDisk } from '
 import { extractPDFContent } from './pdf.service.js';
 import { classifyPDFText, generateEmbedding, getCategoriesConfig, saveCategoriesConfig, getEntityDictionary } from './ai.service.js';
 import { ruleBasedClassify } from '../domain/classification.js';
-import { getDocumentByChecksum, insertDocumentRecord, updateDocumentRecord, getAllDocuments, getDb, getDocumentById } from '../db/database.js';
+import { getDocumentByChecksum, insertDocumentRecord, updateDocumentRecord, getAllDocuments, getDb, getDocumentById } from '../infrastructure/db/database.js';
 import { syncJSONRegistry } from './json_registry.service.js';
 import { logger } from '../infrastructure/logger.js';
 import { isYearString, isForbiddenSubcategory, isPathInsideDir, computeCanonicalPath } from '../domain/taxonomy.js';

@@ -6,7 +6,7 @@ import { exec } from 'child_process';
 import { Ollama } from 'ollama';
 import { z } from 'zod';
 import { CONFIG, BASE_DIR, updateConfig } from '../infrastructure/settings.js';
-import { getAllDocuments, getDocumentById, updateDocumentRecord, getDb, getCategorySubcategoryStats } from '../db/database.js';
+import { getAllDocuments, getDocumentById, updateDocumentRecord, getDb, getCategorySubcategoryStats } from '../infrastructure/db/database.js';
 import { getCategoriesConfig, saveCategoriesConfig, setOnCategoryCreatedCallback, checkModelCanGenerate } from '../services/ai.service.js';
 import { syncJSONRegistry } from '../services/json_registry.service.js';
 import { runTriageScan, repairRegistry, relocalizeFileIfNeeded, getPDFsRecursively, findActualFileOnDisk, reclassifyAndRelocalizeDocument, clearRegistryAndMoveArchiveToRaws, ensureCategoryAndSubcategoryExist } from '../services/triage.service.js';
