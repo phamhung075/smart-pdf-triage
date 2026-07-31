@@ -77,9 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
   addEv('searchInput', 'input', debounce(loadDocuments, 300));
   addEv('btnScan', 'click', handleScan);
   addEv('btnRepair', 'click', handleRepairRegistry);
-  addEv('btnRepairRegistry', 'click', handleRepairRegistry);
   addEv('btnClear', 'click', handleClearRegistry);
-  addEv('btnClearRegistry', 'click', handleClearRegistry);
   addEv('btnOpenRaws', 'click', handleOpenRaws);
   addEv('btnOpenArchive', 'click', handleOpenArchive);
   addEv('btnCloseModal', 'click', closeModal);
@@ -109,7 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Settings Modal Listeners
   addEv('btnSettings', 'click', openSettingsModal);
-  addEv('btnOpenSettings', 'click', openSettingsModal);
   addEv('btnCloseSettings', 'click', closeSettingsModal);
   addEv('settingsForm', 'submit', handleSaveSettings);
   addEv('tabBtnSystem', 'click', () => switchSettingsTab('system'));
@@ -279,7 +276,7 @@ async function handleOpenRaws() {
       openFileLocation(cfg.input_dir);
     }
   } catch (err) {
-    alert('Failed to get input directory: ' + err.message);
+    Toast.error('Failed to get input directory: ' + err.message);
   }
 }
 
@@ -291,12 +288,12 @@ async function handleOpenArchive() {
       openFileLocation(cfg.output_root_dir);
     }
   } catch (err) {
-    alert('Failed to get output directory: ' + err.message);
+    Toast.error('Failed to get output directory: ' + err.message);
   }
 }
 
 async function handleRepairRegistry() {
-  const btn = document.getElementById('btnRepairRegistry');
+  const btn = document.getElementById('btnRepair');
   if (btn) {
     btn.disabled = true;
     btn.textContent = '⏳ Repairing...';
@@ -305,15 +302,19 @@ async function handleRepairRegistry() {
   try {
     const res = await fetch('/api/registry/repair', { method: 'POST' });
     const data = await res.json();
-    Toast.success(`Registry Repair Finished:\n- Scanned: ${data.scannedCount}\n- Repaired: ${data.repairedCount}\n- Relocalized: ${data.relocalizedCount || 0}\n- Returned to __raws: ${data.movedToRawsCount || 0}\n- Updated: ${data.updatedCount}`, 6000);
-    loadCategories();
-    loadDocuments();
+    if (res.ok) {
+      Toast.success(`Registry Repair Finished:\n- Scanned: ${data.scannedCount}\n- Repaired: ${data.repairedCount}\n- Relocalized: ${data.relocalizedCount || 0}\n- Returned to __raws: ${data.movedToRawsCount || 0}\n- Updated: ${data.updatedCount}`, 6000);
+      loadCategories();
+      loadDocuments();
+    } else {
+      Toast.error('Failed to repair registry: ' + (data.error || 'Unknown error'));
+    }
   } catch (err) {
     Toast.error('Failed to repair registry: ' + err.message);
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = '🔧 Repair';
+      btn.textContent = '🔧 Repair Registry';
     }
   }
 }
@@ -333,26 +334,6 @@ async function handleClearRegistry() {
     }
   } catch (err) {
     Toast.error('Failed to clear registry: ' + err.message);
-  }
-}
-
-async function handleRelocalizeDoc(docId) {
-  try {
-    const res = await fetch(`/api/documents/${docId}/relocalize`, { method: 'POST' });
-    const data = await res.json();
-    if (res.ok) {
-      Toast.success(data.message || 'Document relocalized successfully');
-      loadCategories();
-      loadDocuments();
-    } else if (res.status === 404 || data.staleCleaned || (data.error && data.error.includes('not found'))) {
-      Toast.info('ℹ️ Registry updated: Document record refreshed.');
-      loadCategories();
-      loadDocuments();
-    } else {
-      Toast.warning(data.error || 'Unable to relocalize document.');
-    }
-  } catch (err) {
-    Toast.error('Failed to relocalize document: ' + err.message);
   }
 }
 
@@ -679,6 +660,12 @@ async function openRelocalizeModal(docId) {
   try {
     const res = await fetch(`/api/documents/${docId}`);
     const doc = await res.json();
+
+    if (!res.ok) {
+      Toast.error('Error opening relocalize modal: ' + (doc.error || 'Document not found'));
+      return;
+    }
+
     activeRelocalizeDoc = doc;
 
     document.getElementById('relocalizeDocId').value = doc.id;
@@ -706,11 +693,24 @@ async function openRelocalizeModal(docId) {
   }
 }
 
+// Golden Rule #4: general/other/divers/empty/year-only are never valid final
+// subcategories. Mirrors src/services/triage.service.ts's isForbiddenSubcategory.
+function isForbiddenSubcategory(subcategory) {
+  if (!subcategory) return true;
+  const normalized = String(subcategory).toLowerCase().trim();
+  if (normalized.length === 0) return true;
+  if (['general', 'other', 'divers'].includes(normalized)) return true;
+  return /^\d{4}$/.test(normalized);
+}
+
 function updateSubcategoriesDropdown(selectedCatId, selectedSubId) {
   const catList = (window.categories && window.categories.length > 0) ? window.categories : (categories || []);
   const catObj = catList.find(c => c.id === selectedCatId);
   const subSelect = document.getElementById('relocalizeSubcategorySelect');
-  const subs = (catObj && catObj.subcategories) ? catObj.subcategories : [];
+  const allSubs = (catObj && catObj.subcategories) ? catObj.subcategories : [];
+  // Don't offer forbidden subcategories as a pick — a user should have to explicitly
+  // type a real replacement (via "Add New Subcategory"), not re-select "general".
+  const subs = allSubs.filter(s => !isForbiddenSubcategory(s.id));
 
   let optionsHtml = subs.map(s => `
     <option value="${s.id}" ${s.id === selectedSubId ? 'selected' : ''}>
@@ -745,9 +745,7 @@ function combineRelocalizeReasons() {
   if (subReason && subReason !== '__CUSTOM__') parts.push(`Subcategory Error: ${subReason}`);
   
   const textarea = document.getElementById('relocalizeReason');
-  if (parts.length > 0) {
-    textarea.value = parts.join(' | ');
-  }
+  textarea.value = parts.join(' | ');
 }
 
 document.getElementById('relocalizeCatErrorReason')?.addEventListener('change', combineRelocalizeReasons);
@@ -794,6 +792,11 @@ document.getElementById('btnConfirmRelocalize')?.addEventListener('click', async
     subcategory = customSub.toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
   }
 
+  if (isForbiddenSubcategory(subcategory)) {
+    Toast.error(`'${subcategory}' is not a valid subcategory (general/other/divers/year strings aren't allowed). Please choose a specific entity or document-type name.`);
+    return;
+  }
+
   try {
     const res = await fetch(`/api/documents/${docId}/relocalize`, {
       method: 'POST',
@@ -803,6 +806,12 @@ document.getElementById('btnConfirmRelocalize')?.addEventListener('click', async
     const data = await res.json();
     if (res.ok) {
       Toast.success(`📍 Relocalized to: ${category.toUpperCase()} / ${subcategory.toUpperCase()}\n${data.document?.new_path || ''}`, 5000);
+      const relModal = document.getElementById('relocalizeModal');
+      if (relModal) relModal.classList.remove('open', 'active');
+      loadDocuments();
+      loadCategories();
+    } else if (res.status === 404 || data.staleCleaned) {
+      Toast.info('ℹ️ That document was missing on disk — its stale record has been cleaned up.');
       const relModal = document.getElementById('relocalizeModal');
       if (relModal) relModal.classList.remove('open', 'active');
       loadDocuments();
@@ -833,6 +842,12 @@ document.getElementById('btnAiReanalyze')?.addEventListener('click', async () =>
       if (relModal) relModal.classList.remove('open', 'active');
       loadDocuments();
       loadCategories();
+    } else if (res.status === 404 || data.staleCleaned) {
+      Toast.info('ℹ️ That document was missing on disk — its stale record has been cleaned up.');
+      const relModal = document.getElementById('relocalizeModal');
+      if (relModal) relModal.classList.remove('open', 'active');
+      loadDocuments();
+      loadCategories();
     } else {
       Toast.error('AI Re-Analysis failed: ' + (data.error || 'Unknown error'));
     }
@@ -845,6 +860,11 @@ async function openEditModal(docId) {
   try {
     const res = await fetch(`/api/documents/${docId}`);
     const doc = await res.json();
+
+    if (!res.ok) {
+      Toast.error('Failed to load document details: ' + (doc.error || 'Document not found'));
+      return;
+    }
 
     setVal('editDocId', doc.id);
     setVal('editTitle', doc.title);
@@ -885,6 +905,11 @@ async function handleSaveEdit(e) {
     summary: getVal('editSummary'),
     tags: getVal('editTags').split(',').map(t => t.trim()).filter(Boolean)
   };
+
+  if (isForbiddenSubcategory(updates.subcategory)) {
+    Toast.error(`'${updates.subcategory}' is not a valid subcategory (general/other/divers/year strings aren't allowed). Please choose a specific entity or document-type name.`);
+    return;
+  }
 
   try {
     const res = await fetch(`/api/documents/${id}`, {
@@ -1021,7 +1046,7 @@ async function handleScan() {
     }
     if (btnDone) btnDone.style.display = 'inline-block';
   } catch (err) {
-    alert('Error running triage scan: ' + err.message);
+    Toast.error('Error running triage scan: ' + err.message);
   } finally {
     if (sse) sse.close();
     if (btn) {
@@ -1051,7 +1076,7 @@ async function openSettingsModal() {
 
     setVal('cfgInputDir', cfg.input_dir || '');
     setVal('cfgOutputDir', cfg.output_root_dir || '');
-    setVal('cfgOllamaModel', cfg.ollama_model || 'qwen2.5:7b');
+    setVal('cfgOllamaModel', cfg.ollama_model || 'qwen3.5:9b');
     setVal('cfgOllamaHost', cfg.ollama_host || 'http://127.0.0.1:11434');
 
     renderCategoriesManager();
@@ -1059,7 +1084,7 @@ async function openSettingsModal() {
     const modal = document.getElementById('settingsModal');
     if (modal) modal.classList.add('open');
   } catch (err) {
-    alert('Error loading configuration: ' + err.message);
+    Toast.error('Error loading configuration: ' + err.message);
   }
 }
 

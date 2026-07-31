@@ -5,8 +5,8 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx watch src/index.ts",
+    "dev": "tsx watch --exclude \"*.db\" --exclude \"*.db-journal\" --exclude \"*.db-shm\" --exclude \"*.db-wal\" --exclude \"registry.json\" --exclude \"categories.json\" --exclude \"settings.json\" --exclude \"logs/**\" --exclude \".server.lock\" --exclude \".scan.lock\" src/index.ts",
+    "start": "tsx watch --exclude \"*.db\" --exclude \"*.db-journal\" --exclude \"*.db-shm\" --exclude \"*.db-wal\" --exclude \"registry.json\" --exclude \"categories.json\" --exclude \"settings.json\" --exclude \"logs/**\" --exclude \".server.lock\" --exclude \".scan.lock\" src/index.ts",
     "scan": "tsx src/index.ts scan",
     "mcp": "tsx src/index.ts mcp",
     "build": "tsc"

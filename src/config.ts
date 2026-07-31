@@ -18,6 +18,28 @@ export function loadCustomSettings() {
 
 const customSettings = loadCustomSettings();
 
+// Golden Rule #14: only qwen3.5:9b is supported. Legacy/cloud/subscription-gated models
+// are rejected even if they somehow end up in settings.json (manual edit, stale API
+// caller, etc.) rather than silently trusted — this is what let 'kimi-k3:cloud' run
+// undetected for hours.
+const ALLOWED_OLLAMA_MODEL = 'qwen3.5:9b';
+function sanitizeOllamaModel(model: unknown): string {
+  if (model === ALLOWED_OLLAMA_MODEL) return ALLOWED_OLLAMA_MODEL;
+  if (model) {
+    console.warn(`Ignoring unsupported ollama_model '${model}' (only '${ALLOWED_OLLAMA_MODEL}' is allowed per Golden Rule #14) — falling back to '${ALLOWED_OLLAMA_MODEL}'.`);
+  }
+  return ALLOWED_OLLAMA_MODEL;
+}
+
+// Default set of owner/household name tokens (lowercase) that must never be accepted as
+// a subcategory — see PERSONAL_NAME_DENYLIST usage in ai.service.ts. Only used when
+// settings.json doesn't define its own list, so a fresh install still has the protection.
+const DEFAULT_PERSONAL_NAME_DENYLIST = ['pham', 'dai', 'hung', 'thi', 'nguyen', 'huyen'];
+function sanitizePersonalNameDenylist(list: unknown): string[] {
+  if (!Array.isArray(list) || list.length === 0) return DEFAULT_PERSONAL_NAME_DENYLIST;
+  return list.map(v => String(v).toLowerCase().trim()).filter(Boolean);
+}
+
 export const CONFIG = {
   INPUT_DIR: customSettings.input_dir || process.env.PDF_INPUT_DIR || path.join(BASE_DIR, 'input'),
   OUTPUT_ROOT_DIR: customSettings.output_root_dir || process.env.PDF_OUTPUT_DIR || path.join(BASE_DIR, 'organized'),
@@ -27,18 +49,21 @@ export const CONFIG = {
   ENTITY_DICTIONARY_FILE: path.join(BASE_DIR, 'entity_dictionary.json'),
 
   OLLAMA_HOST: customSettings.ollama_host || process.env.OLLAMA_HOST || 'http://127.0.0.1:11434',
-  OLLAMA_MODEL: customSettings.ollama_model || process.env.OLLAMA_MODEL || 'qwen3.5:9b',
+  OLLAMA_MODEL: sanitizeOllamaModel(customSettings.ollama_model || process.env.OLLAMA_MODEL),
   OLLAMA_EMBED_MODEL: process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text',
 
   PORT: parseInt(process.env.PORT || '3000', 10),
+
+  PERSONAL_NAME_DENYLIST: sanitizePersonalNameDenylist(customSettings.personal_name_denylist),
 };
 
 export function reloadConfigFromDisk(): void {
   const current = loadCustomSettings();
   if (current.input_dir) CONFIG.INPUT_DIR = current.input_dir;
   if (current.output_root_dir) CONFIG.OUTPUT_ROOT_DIR = current.output_root_dir;
-  if (current.ollama_model) CONFIG.OLLAMA_MODEL = current.ollama_model;
+  CONFIG.OLLAMA_MODEL = sanitizeOllamaModel(current.ollama_model);
   if (current.ollama_host) CONFIG.OLLAMA_HOST = current.ollama_host;
+  CONFIG.PERSONAL_NAME_DENYLIST = sanitizePersonalNameDenylist(current.personal_name_denylist);
 }
 
 export function updateConfig(newSettings: {
@@ -46,17 +71,20 @@ export function updateConfig(newSettings: {
   output_root_dir?: string;
   ollama_model?: string;
   ollama_host?: string;
+  personal_name_denylist?: string[];
 }): void {
   if (newSettings.input_dir) CONFIG.INPUT_DIR = newSettings.input_dir;
   if (newSettings.output_root_dir) CONFIG.OUTPUT_ROOT_DIR = newSettings.output_root_dir;
-  if (newSettings.ollama_model) CONFIG.OLLAMA_MODEL = newSettings.ollama_model;
+  if (newSettings.ollama_model) CONFIG.OLLAMA_MODEL = sanitizeOllamaModel(newSettings.ollama_model);
   if (newSettings.ollama_host) CONFIG.OLLAMA_HOST = newSettings.ollama_host;
+  if (newSettings.personal_name_denylist) CONFIG.PERSONAL_NAME_DENYLIST = sanitizePersonalNameDenylist(newSettings.personal_name_denylist);
 
   const dataToSave = {
     input_dir: CONFIG.INPUT_DIR,
     output_root_dir: CONFIG.OUTPUT_ROOT_DIR,
     ollama_model: CONFIG.OLLAMA_MODEL,
-    ollama_host: CONFIG.OLLAMA_HOST
+    ollama_host: CONFIG.OLLAMA_HOST,
+    personal_name_denylist: CONFIG.PERSONAL_NAME_DENYLIST
   };
 
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(dataToSave, null, 2), 'utf-8');

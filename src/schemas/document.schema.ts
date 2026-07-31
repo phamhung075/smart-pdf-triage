@@ -49,8 +49,16 @@ export type EntityDictionary = z.infer<typeof EntityDictionarySchema>;
 export const SystemSettingsSchema = z.object({
   input_dir: z.string().min(1, "Input directory is required"),
   output_root_dir: z.string().min(1, "Output directory is required"),
-  ollama_model: z.string().min(1, "Ollama model is required"),
-  ollama_host: z.string().min(1, "Ollama host is required")
+  ollama_model: z.string().min(1, "Ollama model is required").refine(
+    (val) => val === 'qwen3.5:9b',
+    { message: "Only 'qwen3.5:9b' is supported (Golden Rule #14) — other models, including cloud/subscription-gated ones, are rejected." }
+  ),
+  ollama_host: z.string().min(1, "Ollama host is required"),
+  // No .default([]) — an absent field must stay `undefined` so updateConfig() can tell
+  // "the caller didn't send this" apart from "the caller explicitly wants it cleared";
+  // otherwise every settings save from a client that doesn't know this field (e.g. the
+  // current UI form) would silently reset it to CONFIG's default list.
+  personal_name_denylist: z.array(z.string()).optional()
 });
 
 export const DocumentMetadataSchema = z.object({

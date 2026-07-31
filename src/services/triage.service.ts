@@ -1,11 +1,50 @@
 import fs from 'fs';
 import path from 'path';
-import { CONFIG, ensureDirectoriesExist, reloadConfigFromDisk } from '../config.js';
+import { CONFIG, BASE_DIR, ensureDirectoriesExist, reloadConfigFromDisk } from '../config.js';
 import { extractPDFContent } from './pdf.service.js';
 import { classifyPDFText, generateEmbedding, ruleBasedClassify, getCategoriesConfig, saveCategoriesConfig } from './ai.service.js';
 import { getDocumentByChecksum, insertDocumentRecord, updateDocumentRecord, getAllDocuments, getDb, getDocumentById } from '../db/database.js';
 import { syncJSONRegistry } from './json_registry.service.js';
 import { logger } from './logger.service.js';
+
+// Cross-process guard: the web server's own auto-watcher/manual-scan/repair/clear
+// routes already serialize themselves via an in-memory flag, but that can't stop a
+// SEPARATE process (e.g. the MCP server, `npm run scan`, or a stray second server
+// instance) from concurrently running one of these against the same __raws/__archive
+// files. This file-based lock makes that cross-process case fail fast instead of racing.
+const SCAN_LOCK_FILE = path.join(BASE_DIR, '.scan.lock');
+
+function isLockHolderRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err: any) {
+    return err.code === 'EPERM';
+  }
+}
+
+export class ScanInProgressError extends Error {
+  constructor(public readonly holderPid: number) {
+    super(`A scan/repair/clear operation is already in progress (held by process ${holderPid}). Try again shortly.`);
+  }
+}
+
+function acquireScanLock(): () => void {
+  if (fs.existsSync(SCAN_LOCK_FILE)) {
+    const existingPid = parseInt(fs.readFileSync(SCAN_LOCK_FILE, 'utf-8').trim(), 10);
+    if (!isNaN(existingPid) && existingPid !== process.pid && isLockHolderRunning(existingPid)) {
+      throw new ScanInProgressError(existingPid);
+    }
+  }
+  fs.writeFileSync(SCAN_LOCK_FILE, String(process.pid), 'utf-8');
+  return () => {
+    try {
+      if (fs.existsSync(SCAN_LOCK_FILE) && fs.readFileSync(SCAN_LOCK_FILE, 'utf-8').trim() === String(process.pid)) {
+        fs.unlinkSync(SCAN_LOCK_FILE);
+      }
+    } catch (e) {}
+  };
+}
 
 export interface TriageResultItem {
   filename: string;
@@ -17,6 +56,15 @@ export interface TriageResultItem {
   status: string;
 }
 
+// True only if `fullPath` IS `dirPath`, or is actually nested inside it — a plain
+// string-prefix check would also match an unrelated sibling that merely shares a
+// prefix (e.g. "__archive" vs "__archive_old").
+function isPathInsideDir(fullPath: string, dirPath: string): boolean {
+  const normFull = path.normalize(fullPath).toLowerCase();
+  const normDir = path.normalize(dirPath).toLowerCase();
+  return normFull === normDir || normFull.startsWith(normDir + path.sep);
+}
+
 export function getPDFsRecursively(dir: string, ignoreDir?: string): string[] {
   let results: string[] = [];
   if (!fs.existsSync(dir)) return results;
@@ -26,7 +74,7 @@ export function getPDFsRecursively(dir: string, ignoreDir?: string): string[] {
   for (const item of items) {
     const fullPath = path.join(dir, item.name);
 
-    if (ignoreDir && path.normalize(fullPath).toLowerCase().startsWith(path.normalize(ignoreDir).toLowerCase())) {
+    if (ignoreDir && isPathInsideDir(fullPath, ignoreDir)) {
       continue;
     }
 
@@ -60,6 +108,17 @@ export function isYearString(str?: string): boolean {
   return !!str && /^\d{4}$/.test(str.trim());
 }
 
+// Golden Rule #4: general/other/divers/empty/year-only are never valid final
+// subcategories — any write path that lets a caller set an explicit subcategory
+// must reject these, not just the initial classification flow.
+const FORBIDDEN_SUBCATEGORIES = new Set(['general', 'other', 'divers']);
+export function isForbiddenSubcategory(subcategory?: string): boolean {
+  if (!subcategory) return true;
+  const normalized = subcategory.toLowerCase().trim();
+  if (normalized.length === 0) return true;
+  return FORBIDDEN_SUBCATEGORIES.has(normalized) || isYearString(normalized);
+}
+
 export function computeCanonicalPath(
   originalPath: string,
   category: string,
@@ -86,6 +145,38 @@ export function computeCanonicalPath(
   return path.join(CONFIG.OUTPUT_ROOT_DIR, cleanCat, ...subParts, yearStr, file);
 }
 
+// Moves sourcePath to desiredTargetPath without the check-then-act race a plain
+// `existsSync` + `renameSync` has: fs.linkSync fails atomically with EEXIST if the
+// target already exists (unlike renameSync, which would silently overwrite it on
+// Windows), so a genuine collision always gets a fresh unique suffix instead of
+// clobbering another file. Falls back to a plain rename across filesystem/volume
+// boundaries (EXDEV), where an atomic link isn't possible.
+function renameAtomicNoOverwrite(sourcePath: string, desiredTargetPath: string, maxAttempts = 20): string {
+  const dir = path.dirname(desiredTargetPath);
+  const ext = path.extname(desiredTargetPath);
+  const base = path.basename(desiredTargetPath, ext);
+
+  let candidate = desiredTargetPath;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      fs.linkSync(sourcePath, candidate);
+      fs.unlinkSync(sourcePath);
+      return candidate;
+    } catch (err: any) {
+      if (err.code === 'EEXIST') {
+        candidate = path.join(dir, `${base}_${Date.now()}_${attempt}${ext}`);
+        continue;
+      }
+      if (err.code === 'EXDEV') {
+        fs.renameSync(sourcePath, candidate);
+        return candidate;
+      }
+      throw err;
+    }
+  }
+  throw new Error(`Failed to move '${sourcePath}' to a unique path after ${maxAttempts} attempts`);
+}
+
 export function relocalizeFileIfNeeded(
   filePath: string,
   category: string,
@@ -106,15 +197,8 @@ export function relocalizeFileIfNeeded(
     fs.mkdirSync(targetDir, { recursive: true });
   }
 
-  let finalTarget = targetPath;
-  if (fs.existsSync(finalTarget) && path.normalize(finalTarget).toLowerCase() !== normCurrent) {
-    const ext = path.extname(targetPath);
-    const base = path.basename(targetPath, ext);
-    finalTarget = path.join(targetDir, `${base}_${Date.now()}${ext}`);
-  }
-
-  logger.info('RELOCALIZE', `Relocalizing document to canonical subcategory path`, { from: filePath, to: finalTarget });
-  fs.renameSync(filePath, finalTarget);
+  logger.info('RELOCALIZE', `Relocalizing document to canonical subcategory path`, { from: filePath, to: targetPath });
+  const finalTarget = renameAtomicNoOverwrite(filePath, targetPath);
 
   try {
     const oldDir = path.dirname(filePath);
@@ -132,16 +216,12 @@ export function relocalizeFileIfNeeded(
 
 export async function moveBackToRaws(filePath: string, checksum?: string): Promise<string> {
   const filename = path.basename(filePath);
-  let targetPath = path.join(CONFIG.INPUT_DIR, filename);
+  const desiredTargetPath = path.join(CONFIG.INPUT_DIR, filename);
 
-  if (fs.existsSync(targetPath) && path.normalize(targetPath).toLowerCase() !== path.normalize(filePath).toLowerCase()) {
-    const ext = path.extname(filename);
-    const base = path.basename(filename, ext);
-    targetPath = path.join(CONFIG.INPUT_DIR, `${base}_${Date.now()}${ext}`);
-  }
-
-  logger.warn('REPAIR', `Moving file '${filename}' back to __raws`, { targetPath });
-  fs.renameSync(filePath, targetPath);
+  logger.warn('REPAIR', `Moving file '${filename}' back to __raws`, { targetPath: desiredTargetPath });
+  const targetPath = path.normalize(desiredTargetPath).toLowerCase() === path.normalize(filePath).toLowerCase()
+    ? filePath
+    : renameAtomicNoOverwrite(filePath, desiredTargetPath);
 
   if (checksum) {
     const existing = await getDocumentByChecksum(checksum);
@@ -175,6 +255,8 @@ export async function repairRegistry(): Promise<{
   relocalizedCount: number;
   movedToRawsCount: number;
 }> {
+  const release = acquireScanLock();
+  try {
   reloadConfigFromDisk();
   ensureDirectoriesExist();
 
@@ -338,6 +420,9 @@ export async function repairRegistry(): Promise<{
     relocalizedCount,
     movedToRawsCount
   };
+  } finally {
+    release();
+  }
 }
 
 export interface TriageProgressEvent {
@@ -363,6 +448,8 @@ export async function runTriageScan(onProgress?: (event: TriageProgressEvent) =>
   skippedCount: number;
   items: TriageResultItem[];
 }> {
+  const release = acquireScanLock();
+  try {
   reloadConfigFromDisk();
   ensureDirectoriesExist();
 
@@ -550,6 +637,9 @@ export async function runTriageScan(onProgress?: (event: TriageProgressEvent) =>
     skippedCount,
     items
   };
+  } finally {
+    release();
+  }
 }
 
 export function findActualFileOnDisk(doc: { original_filename?: string; original_path?: string; new_path?: string }): string | null {
@@ -573,6 +663,34 @@ export function findActualFileOnDisk(doc: { original_filename?: string; original
   return found || null;
 }
 
+// Golden Rule #5: the category/subcategory must exist in categories.json BEFORE any
+// physical file move — every caller that lets an explicit category/subcategory be set
+// (not just the AI classification path) must run this first.
+export function ensureCategoryAndSubcategoryExist(category: string, subcategory: string): void {
+  const categoriesConfig = getCategoriesConfig();
+  let catObj = categoriesConfig.categories.find(c => c.id === category);
+  if (!catObj) {
+    catObj = {
+      id: category,
+      name: category.charAt(0).toUpperCase() + category.slice(1),
+      description: `Category auto-created for ${category}`,
+      aliases: [category],
+      subcategories: []
+    };
+    categoriesConfig.categories.push(catObj);
+  }
+
+  if (!catObj.subcategories) catObj.subcategories = [];
+  if (!catObj.subcategories.some(s => s.id === subcategory)) {
+    catObj.subcategories.push({
+      id: subcategory,
+      name: subcategory.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      aliases: [subcategory]
+    });
+  }
+  saveCategoriesConfig(categoriesConfig.categories);
+}
+
 export async function reclassifyAndRelocalizeDocument(
   id: number,
   explicitCategory?: string,
@@ -588,6 +706,10 @@ export async function reclassifyAndRelocalizeDocument(
   const doc = await getDocumentById(id);
   if (!doc) {
     return { success: false, error: 'Document not found' };
+  }
+
+  if (explicitSubcategory !== undefined && isForbiddenSubcategory(explicitSubcategory)) {
+    return { success: false, error: `'${explicitSubcategory}' is not a valid subcategory (general/other/divers/year strings are not allowed — Golden Rule #4). Please choose a specific entity or document-type name.` };
   }
 
   const actualPath = findActualFileOnDisk(doc);
@@ -620,30 +742,7 @@ export async function reclassifyAndRelocalizeDocument(
     // User explicitly chose Category & Subcategory from Modal
     newCategory = explicitCategory.toLowerCase().trim();
     newSubcategory = explicitSubcategory.toLowerCase().trim();
-
-    // Auto-create in categories.json if missing
-    const categoriesConfig = getCategoriesConfig();
-    let catObj = categoriesConfig.categories.find(c => c.id === newCategory);
-    if (!catObj) {
-      catObj = {
-        id: newCategory,
-        name: newCategory.charAt(0).toUpperCase() + newCategory.slice(1),
-        description: `Category auto-created for ${newCategory}`,
-        aliases: [newCategory],
-        subcategories: []
-      };
-      categoriesConfig.categories.push(catObj);
-    }
-
-    if (!catObj.subcategories) catObj.subcategories = [];
-    if (!catObj.subcategories.some(s => s.id === newSubcategory)) {
-      catObj.subcategories.push({
-        id: newSubcategory,
-        name: newSubcategory.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-        aliases: [newSubcategory]
-      });
-    }
-    saveCategoriesConfig(categoriesConfig.categories);
+    ensureCategoryAndSubcategoryExist(newCategory, newSubcategory);
   } else {
     // Re-run Qwen 3.5 AI with optional user feedback note
     logger.info('RELOCALIZE', `Re-analyzing document content with AI for ID ${id} (${doc.title})...`, { userFeedbackReason });
@@ -683,6 +782,8 @@ export async function reclassifyAndRelocalizeDocument(
 }
 
 export async function clearRegistryAndMoveArchiveToRaws(): Promise<{ countMoved: number }> {
+  const release = acquireScanLock();
+  try {
   reloadConfigFromDisk();
   ensureDirectoriesExist();
 
@@ -692,7 +793,7 @@ export async function clearRegistryAndMoveArchiveToRaws(): Promise<{ countMoved:
   let countMoved = 0;
   for (const doc of existingDocs) {
     const actualPath = findActualFileOnDisk(doc);
-    if (actualPath && fs.existsSync(actualPath) && actualPath.toLowerCase().startsWith(path.normalize(CONFIG.OUTPUT_ROOT_DIR).toLowerCase())) {
+    if (actualPath && fs.existsSync(actualPath) && isPathInsideDir(actualPath, CONFIG.OUTPUT_ROOT_DIR)) {
       try {
         await moveBackToRaws(actualPath);
         countMoved++;
@@ -708,24 +809,36 @@ export async function clearRegistryAndMoveArchiveToRaws(): Promise<{ countMoved:
     await db.run('DELETE FROM documents_fts');
   } catch (e) {}
 
+  // Any files still left under __archive at this point have no matching DB row
+  // (e.g. a repair/insert that never completed). Never delete a PDF — move these
+  // orphans back to __raws too, same as tracked files, then remove the now-empty
+  // folder skeleton so the next scan reconstructs it cleanly.
   try {
-    const removeDirRecursively = (dirPath: string) => {
-      if (fs.existsSync(dirPath)) {
-        const files = fs.readdirSync(dirPath);
-        for (const file of files) {
-          const curPath = path.join(dirPath, file);
-          if (fs.lstatSync(curPath).isDirectory()) {
-            removeDirRecursively(curPath);
-          } else {
-            fs.unlinkSync(curPath);
+    const moveOrphansAndRemoveEmptyDirs = async (dirPath: string): Promise<void> => {
+      if (!fs.existsSync(dirPath)) return;
+      const files = fs.readdirSync(dirPath);
+      for (const file of files) {
+        const curPath = path.join(dirPath, file);
+        if (fs.lstatSync(curPath).isDirectory()) {
+          await moveOrphansAndRemoveEmptyDirs(curPath);
+        } else {
+          try {
+            await moveBackToRaws(curPath);
+            countMoved++;
+          } catch (err: any) {
+            console.warn(`Error moving orphaned file ${curPath} back to __raws:`, err.message);
           }
         }
-        if (dirPath.toLowerCase() !== path.normalize(CONFIG.OUTPUT_ROOT_DIR).toLowerCase()) {
-          fs.rmdirSync(dirPath);
-        }
+      }
+      if (
+        dirPath.toLowerCase() !== path.normalize(CONFIG.OUTPUT_ROOT_DIR).toLowerCase() &&
+        fs.existsSync(dirPath) &&
+        fs.readdirSync(dirPath).length === 0
+      ) {
+        fs.rmdirSync(dirPath);
       }
     };
-    removeDirRecursively(CONFIG.OUTPUT_ROOT_DIR);
+    await moveOrphansAndRemoveEmptyDirs(CONFIG.OUTPUT_ROOT_DIR);
     ensureDirectoriesExist();
   } catch (e) {}
 
@@ -733,4 +846,7 @@ export async function clearRegistryAndMoveArchiveToRaws(): Promise<{ countMoved:
 
   console.log(`Clear Registry Completed: Purged DB & moved ${countMoved} physical files from __archive back to __raws.`);
   return { countMoved };
+  } finally {
+    release();
+  }
 }

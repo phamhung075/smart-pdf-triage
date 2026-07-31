@@ -33,7 +33,8 @@
     { "slug": "matmut", "name": "Matmut", "aliases": ["matmut"] },
     { "slug": "gmf", "name": "GMF", "aliases": ["gmf"] },
     { "slug": "generali", "name": "Generali", "aliases": ["generali"] },
-    { "slug": "direct_assurance", "name": "Direct Assurance", "aliases": ["direct assurance"] }
+    { "slug": "direct_assurance", "name": "Direct Assurance", "aliases": ["direct assurance"] },
+    { "slug": "a2a", "name": "A2A", "aliases": ["a2a"] }
   ],
   "gov": [
     { "slug": "caf", "name": "CAF", "aliases": ["caf", "caisse d'allocations familiales", "allocations familiales"] },

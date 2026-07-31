@@ -1,6 +1,7 @@
 {
   "input_dir": "C:\\Users\\daihu\\OneDrive\\GiayTo\\Hung\\__raws",
   "output_root_dir": "C:\\Users\\daihu\\OneDrive\\GiayTo\\Hung\\__archive",
-  "ollama_model": "kimi-k3:cloud",
-  "ollama_host": "http://127.0.0.1:11434"
+  "ollama_model": "qwen3.5:9b",
+  "ollama_host": "http://127.0.0.1:11434",
+  "personal_name_denylist": ["pham", "dai", "hung", "thi", "nguyen", "huyen"]
 }

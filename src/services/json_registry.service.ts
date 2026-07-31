@@ -47,7 +47,12 @@ export async function syncJSONRegistry(): Promise<void> {
     documents: entries
   };
 
-  fs.writeFileSync(CONFIG.JSON_REGISTRY_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  // Write to a temp file then rename over the target — a plain writeFileSync can be
+  // interrupted mid-write (process kill, crash), leaving a truncated/corrupted
+  // registry.json; renameSync is atomic on the same filesystem.
+  const tmpPath = `${CONFIG.JSON_REGISTRY_PATH}.tmp`;
+  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
+  fs.renameSync(tmpPath, CONFIG.JSON_REGISTRY_PATH);
 }
 
 function safeParseJSON(str: string, fallback: any) {

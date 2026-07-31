@@ -177,10 +177,13 @@ export async function insertDocumentRecord(doc: {
 
 export async function updateDocumentRecord(id: number, updates: {
   title?: string;
+  titre?: string;
   registre?: string;
   date?: string;
   category?: string;
+  categorie?: string;
   subcategory?: string;
+  subcategorie?: string;
   summary?: string;
   tags?: string[];
   raw_text?: string;
@@ -193,11 +196,14 @@ export async function updateDocumentRecord(id: number, updates: {
   if (!existing) return false;
 
   const now = new Date().toISOString();
-  const title = updates.title ?? existing.title;
+  // Golden Rule #19: both the English and French key aliases are canonical in the AI
+  // payload — any caller using either convention must actually persist, or the DB
+  // silently diverges from wherever the file was just physically moved to.
+  const title = updates.title ?? updates.titre ?? existing.title;
   const registre = updates.registre ?? existing.registre;
   const date = updates.date ?? existing.date;
-  const category = updates.category ?? existing.category;
-  const subcategory = updates.subcategory ?? existing.subcategory;
+  const category = updates.category ?? updates.categorie ?? existing.category;
+  const subcategory = updates.subcategory ?? updates.subcategorie ?? existing.subcategory;
   const summary = updates.summary ?? existing.summary;
   const tagsStr = updates.tags ? JSON.stringify(updates.tags) : existing.tags;
   const raw_text = updates.raw_text ?? existing.raw_text;

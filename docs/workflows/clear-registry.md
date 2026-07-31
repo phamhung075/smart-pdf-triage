@@ -14,14 +14,21 @@ Return every archived PDF to `__raws`, then wipe the DB. **Never delete PDFs.**
    - If it exists AND is inside `OUTPUT_ROOT_DIR` → `moveBackToRaws(actualPath)`. `countMoved++`.
    - Files outside `__archive` (already in `__raws`, or missing) are left alone.
 3. `db.run('DELETE FROM documents')` + try `DELETE FROM documents_fts`.
-4. Recursively delete every file and subfolder inside `OUTPUT_ROOT_DIR`, then re-`ensureDirectoriesExist()` to recreate the empty root.
+4. Recursively walk `OUTPUT_ROOT_DIR`. Any file still found here has no matching DB row
+   (e.g. a repair/insert that never completed) — it is **never deleted**: `moveBackToRaws`
+   it too (same as step 2, `countMoved++`), then remove the directory only once it's empty.
+   Re-`ensureDirectoriesExist()` to recreate the empty root.
 5. `syncJSONRegistry()` (writes an empty registry).
 6. Broadcast `REGISTRY_UPDATED { action: 'CLEAR' }` + `CATEGORIES_UPDATED`.
-7. Return `{ countMoved }`.
+7. Return `{ countMoved }` (tracked + orphaned files combined).
 
-## Why the recursive dir wipe
+## Why the recursive walk in step 4
 
-After step 2, `__archive` is empty of PDFs but still has the category/subcategory/year folder tree. Step 4 removes that skeleton so the next scan reconstructs it cleanly, and stale empty folders don't confuse the UI.
+After step 2, `__archive` is empty of PDFs *known to the DB* but may still hold orphaned
+files (no DB row) plus the category/subcategory/year folder skeleton. Step 4 moves any
+orphans back to `__raws` — same guarantee as tracked files: a PDF is never deleted, only
+ever moved — and then removes the now-empty folder skeleton so the next scan reconstructs
+it cleanly and stale empty folders don't confuse the UI.
 
 ## What NOT to do
 

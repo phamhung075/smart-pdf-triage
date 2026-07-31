@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -6,8 +7,9 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { getAllDocuments, getDocumentById, updateDocumentRecord } from '../db/database.js';
 import { getCategoriesConfig } from '../services/ai.service.js';
-import { runTriageScan } from '../services/triage.service.js';
+import { runTriageScan, relocalizeFileIfNeeded, ensureCategoryAndSubcategoryExist, isForbiddenSubcategory, ScanInProgressError } from '../services/triage.service.js';
 import { syncJSONRegistry } from '../services/json_registry.service.js';
+import { UpdateDocumentSchema } from '../schemas/document.schema.js';
 
 export async function startMCPServer(): Promise<void> {
   const server = new Server(
@@ -33,6 +35,7 @@ export async function startMCPServer(): Promise<void> {
             properties: {
               query: { type: 'string', description: 'Search term or keywords' },
               category: { type: 'string', description: 'Optional category filter' },
+              subcategory: { type: 'string', description: 'Optional subcategory filter' },
               limit: { type: 'number', description: 'Max results count (default 20)' }
             }
           }
@@ -50,7 +53,7 @@ export async function startMCPServer(): Promise<void> {
         },
         {
           name: 'update_document_metadata',
-          description: 'Modify title, registre, date, category, summary, or tags for a document',
+          description: 'Modify title, registre, date, category, subcategory, summary, or tags for a document. If category or subcategory changes, the physical file is relocalized to the new canonical folder (auto-creating the category/subcategory in categories.json first, per Golden Rule #5). subcategory cannot be general/other/divers/a bare year (Golden Rule #4).',
           inputSchema: {
             type: 'object',
             properties: {
@@ -59,6 +62,7 @@ export async function startMCPServer(): Promise<void> {
               registre: { type: 'string' },
               date: { type: 'string' },
               category: { type: 'string' },
+              subcategory: { type: 'string' },
               summary: { type: 'string' },
               tags: { type: 'array', items: { type: 'string' } }
             },
@@ -92,18 +96,21 @@ export async function startMCPServer(): Promise<void> {
       if (name === 'search_documents') {
         const query = ((args?.query as string) || '').toLowerCase();
         const category = ((args?.category as string) || '').toLowerCase();
+        const subcategory = ((args?.subcategory as string) || '').toLowerCase();
         const limit = (args?.limit as number) || 20;
 
         const docs = await getAllDocuments();
         const matches = docs.filter(doc => {
           const catMatch = !category || doc.category.toLowerCase() === category;
+          const subMatch = !subcategory || (doc.subcategory || '').toLowerCase() === subcategory;
           const textMatch = !query ||
             doc.title.toLowerCase().includes(query) ||
             doc.summary.toLowerCase().includes(query) ||
             doc.registre.toLowerCase().includes(query) ||
             doc.tags.toLowerCase().includes(query) ||
+            (doc.subcategory || '').toLowerCase().includes(query) ||
             doc.raw_text.toLowerCase().includes(query);
-          return catMatch && textMatch;
+          return catMatch && subMatch && textMatch;
         }).slice(0, limit);
 
         return {
@@ -118,6 +125,7 @@ export async function startMCPServer(): Promise<void> {
                   registre: d.registre,
                   date: d.date,
                   category: d.category,
+                  subcategory: d.subcategory,
                   summary: d.summary,
                   new_path: d.new_path,
                   status: d.status
@@ -158,34 +166,85 @@ export async function startMCPServer(): Promise<void> {
       }
 
       if (name === 'update_document_metadata') {
-        const docId = args?.docId as number;
-        const updates: any = {};
-        if (args?.title) updates.title = args.title;
-        if (args?.registre) updates.registre = args.registre;
-        if (args?.date) updates.date = args.date;
-        if (args?.category) updates.category = args.category;
-        if (args?.summary) updates.summary = args.summary;
-        if (args?.tags) updates.tags = args.tags;
-
-        const success = await updateDocumentRecord(docId, updates);
-        if (success) {
-          await syncJSONRegistry();
+        const docId = args?.docId;
+        if (typeof docId !== 'number' || !Number.isInteger(docId) || docId <= 0) {
           return {
-            content: [{ type: 'text', text: `Successfully updated metadata for document ID ${docId}` }]
+            content: [{ type: 'text', text: `Error: docId must be a positive integer, got: ${JSON.stringify(docId)}` }],
+            isError: true
           };
-        } else {
+        }
+
+        const parsed = UpdateDocumentSchema.safeParse(args);
+        if (!parsed.success) {
+          return {
+            content: [{ type: 'text', text: `Error: invalid arguments — ${parsed.error.message}` }],
+            isError: true
+          };
+        }
+        const updates = parsed.data;
+
+        const explicitSubcategory = updates.subcategory ?? updates.subcategorie;
+        if (explicitSubcategory !== undefined && isForbiddenSubcategory(explicitSubcategory)) {
+          return {
+            content: [{ type: 'text', text: `Error: '${explicitSubcategory}' is not a valid subcategory (general/other/divers/year strings are not allowed — Golden Rule #4). Please choose a specific entity or document-type name.` }],
+            isError: true
+          };
+        }
+
+        const docBefore = await getDocumentById(docId);
+        if (!docBefore) {
           return {
             content: [{ type: 'text', text: `Error: Document ID ${docId} not found` }],
             isError: true
           };
         }
+
+        const success = await updateDocumentRecord(docId, updates);
+        if (!success) {
+          return {
+            content: [{ type: 'text', text: `Error: Document ID ${docId} not found` }],
+            isError: true
+          };
+        }
+
+        // Relocalize the physical file if category/subcategory changed, mirroring
+        // PUT /api/documents/:id — this tool previously left the DB and disk out of sync.
+        if (docBefore.new_path && fs.existsSync(docBefore.new_path)) {
+          const targetCategory = updates.category ?? updates.categorie ?? docBefore.category;
+          const targetSubcategory = updates.subcategory ?? updates.subcategorie ?? docBefore.subcategory;
+          ensureCategoryAndSubcategoryExist(targetCategory, targetSubcategory);
+          const { newPath } = relocalizeFileIfNeeded(
+            docBefore.new_path,
+            targetCategory,
+            targetSubcategory,
+            updates.date ?? docBefore.date
+          );
+          if (newPath !== docBefore.new_path) {
+            await updateDocumentRecord(docId, { new_path: newPath });
+          }
+        }
+
+        await syncJSONRegistry();
+        return {
+          content: [{ type: 'text', text: `Successfully updated metadata for document ID ${docId}` }]
+        };
       }
 
       if (name === 'trigger_triage') {
-        const result = await runTriageScan();
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
-        };
+        try {
+          const result = await runTriageScan();
+          return {
+            content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
+          };
+        } catch (err: any) {
+          if (err instanceof ScanInProgressError) {
+            return {
+              content: [{ type: 'text', text: `Error: ${err.message}` }],
+              isError: true
+            };
+          }
+          throw err;
+        }
       }
 
       if (name === 'list_categories') {

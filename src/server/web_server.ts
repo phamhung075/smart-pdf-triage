@@ -5,11 +5,11 @@ import fs from 'fs';
 import { exec } from 'child_process';
 import { Ollama } from 'ollama';
 import { z } from 'zod';
-import { CONFIG, updateConfig } from '../config.js';
+import { CONFIG, BASE_DIR, updateConfig } from '../config.js';
 import { getAllDocuments, getDocumentById, updateDocumentRecord, getDb, getCategorySubcategoryStats } from '../db/database.js';
-import { getCategoriesConfig, saveCategoriesConfig, setOnCategoryCreatedCallback } from '../services/ai.service.js';
+import { getCategoriesConfig, saveCategoriesConfig, setOnCategoryCreatedCallback, checkModelCanGenerate } from '../services/ai.service.js';
 import { syncJSONRegistry } from '../services/json_registry.service.js';
-import { runTriageScan, repairRegistry, relocalizeFileIfNeeded, getPDFsRecursively, findActualFileOnDisk, reclassifyAndRelocalizeDocument, clearRegistryAndMoveArchiveToRaws } from '../services/triage.service.js';
+import { runTriageScan, repairRegistry, relocalizeFileIfNeeded, getPDFsRecursively, findActualFileOnDisk, reclassifyAndRelocalizeDocument, clearRegistryAndMoveArchiveToRaws, ensureCategoryAndSubcategoryExist, isForbiddenSubcategory } from '../services/triage.service.js';
 import { logger } from '../services/logger.service.js';
 import { UpdateDocumentSchema, SystemSettingsSchema, CategoriesConfigSchema } from '../schemas/document.schema.js';
 
@@ -23,10 +23,14 @@ export function createWebServer(): express.Express {
     broadcastTriageEvent({ type: 'CATEGORIES_UPDATED' });
   });
 
-  const publicDir = path.resolve('D:/DaiHung/__projet/__master/pdf_triage/public');
+  const publicDir = path.join(BASE_DIR, 'public');
   if (fs.existsSync(publicDir)) {
     app.use(express.static(publicDir));
   }
+
+  // Shared guard: prevents manual scan, the 10s auto-watcher, repair, and clear-registry
+  // from ever running concurrently against the same __raws/__archive files in this process.
+  let isAutoScanning = false;
 
   // Hot Reload / Live Reload SSE Endpoint
   const liveReloadClients: express.Response[] = [];
@@ -38,10 +42,14 @@ export function createWebServer(): express.Express {
 
     liveReloadClients.push(res);
 
-    req.on('close', () => {
+    const cleanup = () => {
       const idx = liveReloadClients.indexOf(res);
       if (idx !== -1) liveReloadClients.splice(idx, 1);
-    });
+    };
+    req.on('close', cleanup);
+    // Without this, a write to an abruptly-reset socket (network drop, sleep, tab
+    // killed) throws an unhandled 'error' event — which crashes the whole process.
+    res.on('error', cleanup);
   });
 
   if (fs.existsSync(publicDir)) {
@@ -92,12 +100,15 @@ export function createWebServer(): express.Express {
     try {
       const list = await ollama.list();
       const modelExists = list.models.some(m => m.name.includes(CONFIG.OLLAMA_MODEL));
+      const health = modelExists ? await checkModelCanGenerate(CONFIG.OLLAMA_MODEL) : { ok: false, error: 'model not found locally' };
       res.json({
         online: true,
         model: CONFIG.OLLAMA_MODEL,
         host: CONFIG.OLLAMA_HOST,
         modelsCount: list.models.length,
-        modelExists
+        modelExists,
+        modelCanGenerate: health.ok,
+        modelError: health.ok ? undefined : health.error
       });
     } catch (err: any) {
       res.json({
@@ -135,26 +146,20 @@ export function createWebServer(): express.Express {
 
   // Repair registry endpoint
   app.post('/api/registry/repair', async (req, res) => {
+    if (isAutoScanning) {
+      res.status(409).json({ error: 'A scan/repair/clear operation is already in progress. Try again shortly.' });
+      return;
+    }
+    isAutoScanning = true;
     try {
       const result = await repairRegistry();
+      broadcastTriageEvent({ type: 'REPAIR_COMPLETED', ...result });
+      broadcastTriageEvent({ type: 'REGISTRY_UPDATED', action: 'REPAIR' });
       res.json({ message: 'Registry repair completed successfully', ...result });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
-    }
-  });
-
-  // Clear all document records
-  app.delete('/api/documents', async (req, res) => {
-    try {
-      const db = await getDb();
-      await db.exec('DELETE FROM documents;');
-      try {
-        await db.exec('DELETE FROM documents_fts;');
-      } catch (e) {}
-      await syncJSONRegistry();
-      res.json({ message: 'All registry records cleared successfully' });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+    } finally {
+      isAutoScanning = false;
     }
   });
 
@@ -165,7 +170,8 @@ export function createWebServer(): express.Express {
         input_dir: CONFIG.INPUT_DIR,
         output_root_dir: CONFIG.OUTPUT_ROOT_DIR,
         ollama_model: CONFIG.OLLAMA_MODEL,
-        ollama_host: CONFIG.OLLAMA_HOST
+        ollama_host: CONFIG.OLLAMA_HOST,
+        personal_name_denylist: CONFIG.PERSONAL_NAME_DENYLIST
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -183,7 +189,8 @@ export function createWebServer(): express.Express {
           input_dir: CONFIG.INPUT_DIR,
           output_root_dir: CONFIG.OUTPUT_ROOT_DIR,
           ollama_model: CONFIG.OLLAMA_MODEL,
-          ollama_host: CONFIG.OLLAMA_HOST
+          ollama_host: CONFIG.OLLAMA_HOST,
+          personal_name_denylist: CONFIG.PERSONAL_NAME_DENYLIST
         }
       });
     } catch (err: any) {
@@ -390,6 +397,15 @@ export function createWebServer(): express.Express {
       const docBefore = await getDocumentById(id);
       const validatedUpdates = UpdateDocumentSchema.parse(req.body);
 
+      // Golden Rule #4: reject an explicit attempt to set a forbidden subcategory
+      // (general/other/divers/year) before writing anything — but don't re-block an
+      // unrelated edit (e.g. just the title) on a document whose EXISTING subcategory
+      // happens to already be one of these from before this rule was enforced everywhere.
+      const explicitSubcategory = validatedUpdates.subcategory ?? validatedUpdates.subcategorie;
+      if (explicitSubcategory !== undefined && isForbiddenSubcategory(explicitSubcategory)) {
+        return res.status(400).json({ error: `'${explicitSubcategory}' is not a valid subcategory (general/other/divers/year strings are not allowed — Golden Rule #4). Please choose a specific entity or document-type name.` });
+      }
+
       const success = await updateDocumentRecord(id, validatedUpdates);
       if (!success || !docBefore) {
         return res.status(404).json({ error: 'Document not found or update failed' });
@@ -399,6 +415,9 @@ export function createWebServer(): express.Express {
       if (docBefore.new_path && fs.existsSync(docBefore.new_path)) {
         const targetCategory = validatedUpdates.category || validatedUpdates.categorie || docBefore.category;
         const targetSubcategory = validatedUpdates.subcategory || validatedUpdates.subcategorie || docBefore.subcategory;
+        // Golden Rule #5: the category/subcategory must exist in categories.json BEFORE
+        // the physical move — this route previously skipped that step entirely.
+        ensureCategoryAndSubcategoryExist(targetCategory, targetSubcategory);
         const { newPath } = relocalizeFileIfNeeded(
           docBefore.new_path,
           targetCategory,
@@ -444,6 +463,11 @@ export function createWebServer(): express.Express {
 
   // Clear registry & move all files from __archive back to __raws
   app.delete('/api/documents', async (req, res) => {
+    if (isAutoScanning) {
+      res.status(409).json({ error: 'A scan/repair/clear operation is already in progress. Try again shortly.' });
+      return;
+    }
+    isAutoScanning = true;
     try {
       const { countMoved } = await clearRegistryAndMoveArchiveToRaws();
       broadcastTriageEvent({ type: 'REGISTRY_UPDATED', action: 'CLEAR' });
@@ -454,6 +478,8 @@ export function createWebServer(): express.Express {
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    } finally {
+      isAutoScanning = false;
     }
   });
 
@@ -467,19 +493,24 @@ export function createWebServer(): express.Express {
 
     triageSseClients.push(res);
 
-    req.on('close', () => {
+    const cleanup = () => {
       const idx = triageSseClients.indexOf(res);
       if (idx !== -1) triageSseClients.splice(idx, 1);
-    });
+    };
+    req.on('close', cleanup);
+    res.on('error', cleanup);
   });
 
   function broadcastTriageEvent(event: any) {
     const payload = `data: ${JSON.stringify(event)}\n\n`;
-    triageSseClients.forEach(client => client.write(payload));
+    triageSseClients.forEach(client => {
+      try {
+        client.write(payload);
+      } catch (e) {}
+    });
   }
 
   // 10-Second Auto-Scan Watcher: Check __raws every 10s and put PDF into category pills automatically
-  let isAutoScanning = false;
   setInterval(async () => {
     if (isAutoScanning) return;
     try {
@@ -500,6 +531,11 @@ export function createWebServer(): express.Express {
 
   // Trigger triage scan with live progress broadcasting
   app.post('/api/triage/scan', async (req, res) => {
+    if (isAutoScanning) {
+      res.status(409).json({ error: 'A scan/repair/clear operation is already in progress. Try again shortly.' });
+      return;
+    }
+    isAutoScanning = true;
     try {
       const result = await runTriageScan((evt) => {
         broadcastTriageEvent(evt);
@@ -507,6 +543,8 @@ export function createWebServer(): express.Express {
       res.json({ message: 'Triage scan completed', ...result });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    } finally {
+      isAutoScanning = false;
     }
   });
 
@@ -521,9 +559,54 @@ function safeParseJSON(str: string, fallback: any) {
   }
 }
 
+const PID_LOCK_FILE = path.join(BASE_DIR, '.server.lock');
+
+function isProcessRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err: any) {
+    return err.code === 'EPERM';
+  }
+}
+
+// Prevent two instances of this server (e.g. a stale tsx-watch child that hasn't
+// exited yet plus a freshly-spawned one) from running their auto-watchers
+// concurrently against the same __raws/__archive files.
+function acquireSingleInstanceLock(): void {
+  if (fs.existsSync(PID_LOCK_FILE)) {
+    const existingPid = parseInt(fs.readFileSync(PID_LOCK_FILE, 'utf-8').trim(), 10);
+    if (!isNaN(existingPid) && isProcessRunning(existingPid)) {
+      console.error(`Another instance of this server is already running (PID ${existingPid}). Refusing to start a second instance — stop it first, or delete ${PID_LOCK_FILE} if it's stale.`);
+      process.exit(1);
+    }
+  }
+  fs.writeFileSync(PID_LOCK_FILE, String(process.pid), 'utf-8');
+
+  const releaseLock = () => {
+    try {
+      if (fs.existsSync(PID_LOCK_FILE) && fs.readFileSync(PID_LOCK_FILE, 'utf-8').trim() === String(process.pid)) {
+        fs.unlinkSync(PID_LOCK_FILE);
+      }
+    } catch (e) {}
+  };
+  process.on('exit', releaseLock);
+  process.on('SIGINT', () => { releaseLock(); process.exit(0); });
+  process.on('SIGTERM', () => { releaseLock(); process.exit(0); });
+}
+
 export function startWebServer(port: number = CONFIG.PORT): void {
+  acquireSingleInstanceLock();
   const app = createWebServer();
-  app.listen(port, () => {
+  const server = app.listen(port, () => {
     console.log(`Web Dashboard is running at http://localhost:${port} [Hot Reload Active 🔥]`);
+  });
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${port} is already in use — another process may already be bound to it. Exiting instead of running a zombie instance.`);
+    } else {
+      console.error('Web server failed to start:', err.message);
+    }
+    process.exit(1);
   });
 }

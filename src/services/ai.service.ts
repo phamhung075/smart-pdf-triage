@@ -96,6 +96,35 @@ export function matchEntityDictionary(combined: string, domains: (keyof EntityDi
   return null;
 }
 
+interface ModelHealthCacheEntry {
+  modelName: string;
+  checkedAt: number;
+  canGenerate: boolean;
+  error?: string;
+}
+let modelHealthCache: ModelHealthCacheEntry | null = null;
+const MODEL_HEALTH_CACHE_TTL_MS = 5 * 60 * 1000;
+
+// A model can pass the "exists locally" check (ollama.list()) yet still be unable to
+// generate — e.g. a cloud/subscription-gated model that's listed but rejects requests
+// at generate-time. This does a cheap 1-token generation to catch that proactively,
+// cached briefly so it isn't repeated on every single document classification.
+export async function checkModelCanGenerate(modelName: string, host: string = CONFIG.OLLAMA_HOST, forceRefresh = false): Promise<{ ok: boolean; error?: string }> {
+  const now = Date.now();
+  if (!forceRefresh && modelHealthCache && modelHealthCache.modelName === modelName && (now - modelHealthCache.checkedAt) < MODEL_HEALTH_CACHE_TTL_MS) {
+    return { ok: modelHealthCache.canGenerate, error: modelHealthCache.error };
+  }
+  const ollama = new Ollama({ host });
+  try {
+    await ollama.generate({ model: modelName, prompt: 'test', options: { num_predict: 1 } });
+    modelHealthCache = { modelName, checkedAt: now, canGenerate: true };
+    return { ok: true };
+  } catch (err: any) {
+    modelHealthCache = { modelName, checkedAt: now, canGenerate: false, error: err.message };
+    return { ok: false, error: err.message };
+  }
+}
+
 export async function ensureOllamaModel(modelName: string = CONFIG.OLLAMA_MODEL): Promise<boolean> {
   const ollama = new Ollama({ host: CONFIG.OLLAMA_HOST });
   try {
@@ -106,6 +135,11 @@ export async function ensureOllamaModel(modelName: string = CONFIG.OLLAMA_MODEL)
       await ollama.pull({ model: modelName });
       console.log(`Model '${modelName}' pulled successfully.`);
     }
+    const health = await checkModelCanGenerate(modelName);
+    if (!health.ok) {
+      console.warn(`Model '${modelName}' exists locally but cannot generate (e.g. subscription-gated cloud model): ${health.error}`);
+      return false;
+    }
     return true;
   } catch (err: any) {
     console.warn(`Ollama check/pull warning for model ${modelName}:`, err.message);
@@ -115,7 +149,10 @@ export async function ensureOllamaModel(modelName: string = CONFIG.OLLAMA_MODEL)
       exec('ollama serve');
       await new Promise(r => setTimeout(r, 2000));
       const retryList = await ollama.list();
-      return retryList.models.some(m => m.name.startsWith(modelName) || m.name.includes(modelName));
+      const existsAfterSpawn = retryList.models.some(m => m.name.startsWith(modelName) || m.name.includes(modelName));
+      if (!existsAfterSpawn) return false;
+      const health = await checkModelCanGenerate(modelName, CONFIG.OLLAMA_HOST, true);
+      return health.ok;
     } catch (autoErr: any) {
       console.error('Failed to auto-spawn Ollama:', autoErr.message);
       return false;
@@ -131,18 +168,140 @@ function normalizeSlug(str: string): string {
     .replace(/^_+|_+$/g, '');
 }
 
+// --- Ungrounded subcategory slug guard --------------------------------------------------
+// When neither the curated regex list nor the entity dictionary recognizes a real entity,
+// both the Qwen prompt (classifyPDFText) and ruleBasedClassify's last-resort fallback are
+// tempted to invent a subcategory slug from the filename itself — e.g.
+// "DcyJXe9MT9i7Un7tOlhU_StanW.pdf" -> "dcyjxe9mt9i7un7tolhu", "Page de confirmation.pdf"
+// -> "page". That slug then gets permanently auto-created in categories.json (Golden Rule
+// #5) even though it names nothing real. A "specific"-looking slug is only accepted here if
+// it is actually grounded in the document's own text — not merely echoed from the filename
+// or a generic/structural word.
+
+const GENERIC_SLUG_DENYLIST = new Set([
+  'general', 'other', 'divers', 'autre', 'autres', 'various', 'misc', 'note', 'notes',
+  'info', 'page', 'bon', 'export', 'scan', 'copie', 'copy', 'document', 'doc', 'fichier',
+  'file', 'image', 'confirmation', 'recu', 'releve', 'extrait', 'titre',
+  'contrat', 'facture', 'attestation', 'lettre', 'avis', 'bulletin', 'certificat'
+]);
+
+// This is a personal document archive for one household — the owner's (and family
+// members') own name appears in the header/addressee block of nearly every document,
+// so a plain "does this appear in the text" check trivially passes it, mistaking the
+// document's OWNER for its ISSUER (e.g. "Dai Hung PHAM CPF Caisse des Dépôts.pdf" ->
+// subcategory 'dai' instead of the actual issuing organization). A subcategory must
+// identify who issued/what type the document is, never who it's about. Configurable via
+// settings.json's `personal_name_denylist` (CONFIG.PERSONAL_NAME_DENYLIST) rather than
+// hardcoded, so it can be edited without a code change.
+function getPersonalNameDenylist(): Set<string> {
+  return new Set(CONFIG.PERSONAL_NAME_DENYLIST.map(n => n.toLowerCase().trim()));
+}
+
+const MIN_GROUNDED_SLUG_LENGTH = 3;
+
+function filenameSlugTokens(filename: string): string[] {
+  const cleanName = filename.replace(/\.pdf$/i, '').replace(/[-_\s]+/g, '_').toLowerCase();
+  return cleanName.split('_').filter(w => w.length >= 3 && !/^\d+$/.test(w));
+}
+
+function isFilenameEchoedSlug(slug: string, filename: string): boolean {
+  const wholeFilenameSlug = normalizeSlug(filename.replace(/\.pdf$/i, ''));
+  if (slug === wholeFilenameSlug) return true;
+  return filenameSlugTokens(filename).some(t => t === slug || slug.includes(t) || t.includes(slug));
+}
+
+function countSlugOccurrences(slug: string, text: string): number {
+  // Slugs are snake_case but real document text uses spaces/hyphens between words (e.g.
+  // slug "france_travail" must still match body text "France Travail"), so underscores
+  // become a flexible separator instead of a literal character.
+  const escaped = slug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/_/g, '[\\s_-]+');
+  if (!escaped) return 0;
+  const regex = new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'giu');
+  return (text.match(regex) || []).length;
+}
+
+/**
+ * True only if `slug` looks like a real-world entity name grounded in the document's own
+ * text, as opposed to a generic/structural word, gibberish, or an echo of the filename.
+ * Used to gate the dynamic subcategory auto-create path in both classifyPDFText and
+ * ruleBasedClassify. Exported for testing.
+ */
+export function isGroundedSubcategorySlug(slug: string, rawText: string, filename: string): boolean {
+  if (!slug || slug.length < MIN_GROUNDED_SLUG_LENGTH) return false;
+  if (GENERIC_SLUG_DENYLIST.has(slug)) return false;
+  if (slug.split('_').some(part => getPersonalNameDenylist().has(part))) return false;
+
+  const occurrences = countSlugOccurrences(slug, rawText || '');
+  if (occurrences === 0) return false;
+
+  if (isFilenameEchoedSlug(slug, filename)) {
+    // A slug that's also present in the filename is exactly what a hallucinating model
+    // falls back to — require it to show up more than once in the body (letterhead,
+    // footer, reference line, ...) rather than a single incidental mention.
+    return occurrences >= 2;
+  }
+
+  return true;
+}
+
+function repairTruncatedJSON(text: string): string {
+  let result = text;
+  let inString = false;
+  let escaped = false;
+  const stack: string[] = [];
+
+  for (const ch of result) {
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === '{' || ch === '[') stack.push(ch);
+    else if (ch === '}' && stack[stack.length - 1] === '{') stack.pop();
+    else if (ch === ']' && stack[stack.length - 1] === '[') stack.pop();
+  }
+
+  if (inString) {
+    result += '"';
+  }
+  while (stack.length > 0) {
+    const open = stack.pop();
+    result += open === '{' ? '}' : ']';
+  }
+  return result;
+}
+
 export function cleanAndParseJSON(rawStr: string): any {
   let text = rawStr.trim();
   text = text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
 
   const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start !== -1 && end !== -1 && end > start) {
-    text = text.substring(start, end + 1);
+  if (start === -1) {
+    throw new Error('No JSON object found in AI response');
   }
+  text = text.substring(start);
 
-  text = text.replace(/,\s*([\}\]])/g, '$1');
-  return JSON.parse(text);
+  const end = text.lastIndexOf('}');
+  const candidate = end !== -1 ? text.substring(0, end + 1) : text;
+  const cleaned = candidate.replace(/,\s*([\}\]])/g, '$1');
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    // Response was likely truncated mid-generation (e.g. context/length limit cut off
+    // markdown_content before the closing brace). Repair by closing any unterminated
+    // string and any brackets left open, respecting string boundaries, then retry.
+    const repaired = repairTruncatedJSON(text).replace(/,\s*([\}\]])/g, '$1');
+    return JSON.parse(repaired);
+  }
 }
 
 export function ruleBasedClassify(rawText: string, filename: string): { categorie: string; subcategorie: string; title: string; date: string } {
@@ -224,7 +383,8 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
   else if (/\b(facture n°|facture no|facture|invoice|quittance|montant à payer|total ttc)\b/i.test(combined)) {
     categorie = 'invoices';
     if (/\bsfr\b/i.test(combined)) subcategorie = 'sfr';
-    else if (/\bedf|engie\b/i.test(combined)) subcategorie = 'edf';
+    else if (/\bedf\b/i.test(combined)) subcategorie = 'edf';
+    else if (/\bengie\b/i.test(combined)) subcategorie = 'engie';
     else if (/\bcdiscount\b/i.test(combined)) subcategorie = 'cdiscount';
     else if (/\bamazon\b/i.test(combined)) subcategorie = 'amazon';
     else {
@@ -241,7 +401,9 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
     }
   }
   // 7. Taxes & Government Income Statements
-  else if (/\b(avis[ _-]d[ _-]impot|avis[ _-]d'impot|avis[ _-]impot|déclaration[ _-]d'impôt|taxe[ _-]fonciere|taxe[ _-]foncière|taxe[ _-]d'habitation|revenus[ _-]et[ _-]prelev|prélèvement[ _-]sociaux|prelev[ _-]sociaux|finances[ _-]publiques|dgfip|impôt|impots)\b/i.test(combined)) {
+  // Same bank-statement trap as 7b/8 below: a transaction row mentioning "prélèvements
+  // sociaux" or "impôt" inside a relevé de compte must not divert this to 'impot'.
+  else if (!looksLikeBankStatement && /\b(avis[ _-]d[ _-]impot|avis[ _-]d'impot|avis[ _-]impot|déclaration[ _-]d'impôt|taxe[ _-]fonciere|taxe[ _-]foncière|taxe[ _-]d'habitation|revenus[ _-]et[ _-]prelev|prélèvement[ _-]sociaux|prelev[ _-]sociaux|finances[ _-]publiques|dgfip|impôt|impots)\b/i.test(combined)) {
     categorie = 'administrative';
     subcategorie = 'impot';
   }
@@ -317,7 +479,8 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
     else if (/\b(gan|gan santé|gan assurances)\b/i.test(combined)) subcategorie = 'gan_sante';
     else if (/\bcapgemini\b/i.test(combined)) subcategorie = 'capgemini';
     else if (/\b(sfr|red by sfr)\b/i.test(combined)) subcategorie = 'sfr';
-    else if (/\b(edf|engie)\b/i.test(combined)) subcategorie = 'edf';
+    else if (/\bedf\b/i.test(combined)) subcategorie = 'edf';
+    else if (/\bengie\b/i.test(combined)) subcategorie = 'engie';
     else if (/\bbouygues\b/i.test(combined)) subcategorie = 'bouygues';
     else if (/\bfree\b/i.test(combined)) subcategorie = 'free';
     else if (/\b(ameli|assurance maladie|cpam)\b/i.test(combined)) subcategorie = 'ameli';
@@ -332,13 +495,20 @@ export function ruleBasedClassify(rawText: string, filename: string): { categori
       subcategorie = dictAny.subcategorie;
     }
     else {
-      // Dynamic Subcategory Extraction from Filename Words
+      // Dynamic Subcategory Extraction from Filename Words — ONLY accepted if the
+      // resulting slug is actually grounded in the document text (isGroundedSubcategorySlug
+      // above). Previously this unconditionally promoted a filename fragment (or a fully
+      // random filename) to a permanent subcategory; now an ungrounded candidate is left as
+      // 'general' so the caller's strict fail guard (Golden Rule #4) can BLOCK it instead.
       const cleanName = filename.replace(/\.pdf$/i, '').replace(/[-_\s]+/g, '_').toLowerCase();
       const words = cleanName.split('_').filter(w => w.length > 2 && !/^\d+$/.test(w) && !['pdf', 'doc', 'document', 'copy', 'scan', 'the', 'and', 'for', 'mon', 'mes', 'une', 'des', 'sur', 'les', 'par'].includes(w));
       if (words.length > 0) {
         const candidate = words.find(w => !['contrat', 'facture', 'attestation', 'lettre', 'avis', 'bulletin', 'certificat'].includes(w)) || words[0];
         if (candidate && candidate.length >= 3) {
-          subcategorie = normalizeSlug(candidate);
+          const candidateSlug = normalizeSlug(candidate);
+          if (isGroundedSubcategorySlug(candidateSlug, rawText, filename)) {
+            subcategorie = candidateSlug;
+          }
         }
       }
     }
@@ -373,7 +543,7 @@ export function buildCategoriesDescriptionStr(categoriesConfig: ReturnType<typeo
 
 export async function classifyPDFText(rawText: string, filename: string, previousError?: string): Promise<DocumentMetadata> {
   const ollama = new Ollama({ host: CONFIG.OLLAMA_HOST });
-  await ensureOllamaModel(CONFIG.OLLAMA_MODEL);
+  const modelHealthy = await ensureOllamaModel(CONFIG.OLLAMA_MODEL);
 
   const categoriesConfig = getCategoriesConfig();
   const categoriesDescriptionStr = buildCategoriesDescriptionStr(categoriesConfig);
@@ -396,10 +566,11 @@ ${categoriesDescriptionStr}
 1. HEADER VS BODY AUDIT: First, inspect the header/issuer of the document. Distinguish the issuing entity from transaction line items.
 2. FULL CONTENT PURPOSE ANALYSIS: Read the body text to understand the legal, financial, or administrative purpose of the document.
 3. CATEGORY SELECTION: Evaluate the 12-step decision flow in strict order. Pick the single most accurate category.
-4. SPECIFIC SUBCATEGORY SELECTION: 
+4. SPECIFIC SUBCATEGORY SELECTION:
    - Identify the exact company, bank, school, government branch, or document type (e.g. 'credit_mutuel', 'impot', 'pro_electro', 'ameli', 'foncia', 'allianz', 'cesi', 'pacifique4').
-   - If the issuing company or organization is NOT in existing subcategories, DYNAMICALLY GENERATE A NEW CLEAN SLUG for that exact entity (e.g. 'france_travail', 'caf', 'urssaf', 'veolia', 'orange').
-   - NEVER output 'general', 'personal', 'other', 'divers', or year strings ('2023') as subcategories!
+   - If the issuing company or organization is NOT in existing subcategories, DYNAMICALLY GENERATE A NEW CLEAN SLUG for that exact entity — ONLY if that entity's name actually appears in the Document Text Content above (e.g. 'france_travail', 'caf', 'urssaf', 'veolia', 'orange'). NEVER derive the slug from the filename and NEVER guess — the filename is not document content.
+   - If the document text itself has no identifiable real entity (illegible/weak OCR, a generic confirmation page, a form with no issuer name), output subcategorie as 'general' — that is the correct, honest answer here. Do NOT invent a fake-specific slug just to avoid saying 'general'.
+   - Otherwise, when a real entity IS identifiable in the text, NEVER output 'general', 'personal', 'other', 'divers', or year strings ('2023') as subcategories!
 
 🛑 MASTER AI CLASSIFICATION DECISION FLOW (FOLLOW IN STRICT ORDER):
 
@@ -470,7 +641,7 @@ Respond ONLY with raw JSON matching this structure:
 
   let userPrompt = `Filename: ${filename}\n\nDocument Text Content:\n${textSnippet}`;
   if (previousError) {
-    userPrompt += `\n\n⚠️ PREVIOUS ATTEMPT FEEDBACK (FIX THIS PROBLEM):\nThe previous classification attempt for this document encountered an error: "${previousError}".\nPlease carefully analyze the document text and fix this issue. You MUST provide a specific, valid Category and Subcategory slug (e.g. 'credit_mutuel', 'impot', 'ameli', 'sfr'). Do NOT return 'general' or 'other'.`;
+    userPrompt += `\n\n⚠️ PREVIOUS ATTEMPT FEEDBACK (FIX THIS PROBLEM):\nThe previous classification attempt for this document encountered an error: "${previousError}".\nPlease carefully analyze the document text and fix this issue. You MUST provide a specific, valid Category and Subcategory slug that is genuinely grounded in the Document Text Content (e.g. 'credit_mutuel', 'impot', 'ameli', 'sfr') — do NOT derive it from the filename. If no real entity is identifiable in the text, it is correct to return 'general' rather than guessing.`;
   }
 
   logger.debug('OLLAMA_AI', `Sending classification request to model '${CONFIG.OLLAMA_MODEL}'`, { filename, textSnippetLength: textSnippet.length });
@@ -478,13 +649,22 @@ Respond ONLY with raw JSON matching this structure:
   let validated: DocumentMetadata;
 
   try {
+    if (!modelHealthy) {
+      throw new Error(`Model '${CONFIG.OLLAMA_MODEL}' failed its capability check (exists but cannot generate, e.g. a subscription-gated cloud model) — skipping the classification request.`);
+    }
+
     const response = await ollama.generate({
       model: CONFIG.OLLAMA_MODEL,
       system: systemPrompt,
       prompt: userPrompt,
       format: 'json',
+      // qwen3.5:9b is a thinking-capable model; without this, it routes its entire
+      // JSON answer into response.thinking and leaves response.response empty.
+      think: false,
       options: {
-        temperature: 0.1
+        temperature: 0.1,
+        num_ctx: 8192,
+        num_predict: 4096
       }
     });
 
@@ -559,12 +739,29 @@ Respond ONLY with raw JSON matching this structure:
     matchedCategory.subcategories = [];
   }
 
-  let matchedSub = matchedCategory.subcategories.find(s =>
-    s.id === rawSubSlug || (s.aliases && s.aliases.some(a => rawSubSlug.includes(a)))
-  );
+  const FORBIDDEN_SUBCATEGORIES = new Set(['general', 'other', 'divers']);
+
+  let matchedSub = FORBIDDEN_SUBCATEGORIES.has(rawSubSlug)
+    ? undefined
+    : matchedCategory.subcategories.find(s =>
+        s.id === rawSubSlug || (s.aliases && s.aliases.some(a => rawSubSlug.includes(a)))
+      );
 
   if (matchedSub) {
     validated.subcategorie = matchedSub.id;
+  } else if (FORBIDDEN_SUBCATEGORIES.has(rawSubSlug)) {
+    // Forbidden sentinel value — never auto-create it as a real taxonomy entry. Leave
+    // validated.subcategorie as-is so triage.service.ts's strict fail guard (Golden Rule
+    // #4) BLOCKs the file and keeps it in __raws.
+    validated.subcategorie = rawSubSlug;
+  } else if (!isGroundedSubcategorySlug(rawSubSlug, rawText, filename)) {
+    // The model (or the ruleBasedClassify refinement pass below it) invented a
+    // "specific"-looking slug that isn't actually grounded in the document's own content —
+    // a filename echo, gibberish, or a generic/structural word. Refuse to pollute
+    // categories.json with it; force 'general' so the BLOCK guard above catches it instead
+    // of silently mis-filing the document under a garbage subcategory.
+    logger.warn('OLLAMA_AI', `Rejected ungrounded subcategory slug '${rawSubSlug}' for ${filename} (not found in document content) — forcing 'general' to trigger BLOCK guard`);
+    validated.subcategorie = 'general';
   } else {
     // DYNAMIC AUTO-CREATION OF NEW SUBCATEGORY BEFORE FILE MOVE!
     logger.info('OLLAMA_AI', `Auto-created new subcategory '${rawSubSlug}' under '${matchedCategory.id}' BEFORE move`, { filename });

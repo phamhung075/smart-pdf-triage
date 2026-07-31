@@ -35,8 +35,15 @@
           "name": "EDF",
           "aliases": [
             "edf",
-            "engie",
             "energie"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "engie",
+          "name": "Engie",
+          "aliases": [
+            "engie"
           ],
           "subcategories": []
         },
@@ -47,14 +54,6 @@
             "cdiscount",
             "amazon",
             "fnac"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "general",
-          "name": "General",
-          "aliases": [
-            "general"
           ],
           "subcategories": []
         },
@@ -101,14 +100,6 @@
           "subcategories": []
         },
         {
-          "id": "general",
-          "name": "General",
-          "aliases": [
-            "general"
-          ],
-          "subcategories": []
-        },
-        {
           "id": "fnac",
           "name": "Fnac",
           "aliases": [
@@ -121,22 +112,6 @@
           "name": "Conditions Generales",
           "aliases": [
             "conditions_generales"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "gan_sante",
-          "name": "Gan Sante",
-          "aliases": [
-            "gan_sante"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "lai_dentail",
-          "name": "Lai Dentail",
-          "aliases": [
-            "lai_dentail"
           ],
           "subcategories": []
         }
@@ -234,178 +209,10 @@
           "subcategories": []
         },
         {
-          "id": "general",
-          "name": "General",
-          "aliases": [
-            "general"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "attestationstageproelectrosas20191008",
-          "name": "Attestationstageproelectrosas20191008",
-          "aliases": [
-            "attestationstageproelectrosas20191008"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "attestationtitulairecontrat2ddoc",
-          "name": "Attestationtitulairecontrat2ddoc",
-          "aliases": [
-            "attestationtitulairecontrat2ddoc"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "cercles",
-          "name": "Cercles",
-          "aliases": [
-            "cercles"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "calendrier",
-          "name": "Calendrier",
-          "aliases": [
-            "calendrier"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "certificatfrancophone",
-          "name": "Certificat francophone",
-          "aliases": [
-            "certificat francophone"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "certificationdigitalactive",
-          "name": "Certification digital active",
-          "aliases": [
-            "certification digital active"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "declarationhonneurcommunautedevie",
-          "name": "Declarationhonneurcommunautedevie",
-          "aliases": [
-            "declarationhonneurcommunautedevie"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "exemple",
-          "name": "Exemple",
-          "aliases": [
-            "exemple"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "export",
-          "name": "Export",
-          "aliases": [
-            "export"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "mutuelle",
-          "name": "Mutuelle",
-          "aliases": [
-            "mutuelle"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "page",
-          "name": "Page",
-          "aliases": [
-            "page"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "pham",
-          "name": "Pham",
-          "aliases": [
-            "pham"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "recepisse",
-          "name": "Recepisse",
-          "aliases": [
-            "recepisse"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "ruptureconventionnelle",
-          "name": "Ruptureconventionnelle",
-          "aliases": [
-            "ruptureconventionnelle"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "titre2019",
-          "name": "Titre2019",
-          "aliases": [
-            "titre2019"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "titrehung",
-          "name": "Titrehung",
-          "aliases": [
-            "titrehung"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "bon",
-          "name": "Bon",
-          "aliases": [
-            "bon"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "dcyjxe9mt9i7un7tolhu",
-          "name": "Dcyjxe9mt9i7un7tolhu",
-          "aliases": [
-            "dcyjxe9mt9i7un7tolhu"
-          ],
-          "subcategories": []
-        },
-        {
           "id": "france_travail",
           "name": "France Travail",
           "aliases": [
             "france_travail"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "bac_l1informatique",
-          "name": "Bac L1informatique",
-          "aliases": [
-            "bac_l1informatique"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "bulletinscolaire",
-          "name": "Bulletinscolaire",
-          "aliases": [
-            "bulletinscolaire"
           ],
           "subcategories": []
         }
@@ -454,58 +261,10 @@
           "subcategories": []
         },
         {
-          "id": "general",
-          "name": "General",
+          "id": "gps",
+          "name": "Gps",
           "aliases": [
-            "general"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "cesi",
-          "name": "Cesi",
-          "aliases": [
-            "cesi"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "343008_1",
-          "name": "343008 1",
-          "aliases": [
-            "343008_1"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "dai",
-          "name": "Dai",
-          "aliases": [
-            "dai"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "dobveepr",
-          "name": "Dobveepr",
-          "aliases": [
-            "dobveepr"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "contrat",
-          "name": "Contrat",
-          "aliases": [
-            "contrat"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "thi",
-          "name": "Thi",
-          "aliases": [
-            "thi"
+            "gps"
           ],
           "subcategories": []
         }
@@ -631,22 +390,6 @@
             "allianz"
           ],
           "subcategories": []
-        },
-        {
-          "id": "general",
-          "name": "General",
-          "aliases": [
-            "general"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "sfr",
-          "name": "Sfr",
-          "aliases": [
-            "sfr"
-          ],
-          "subcategories": []
         }
       ]
     },
@@ -705,18 +448,26 @@
           "subcategories": []
         },
         {
-          "id": "general",
-          "name": "General",
-          "aliases": [
-            "general"
-          ],
-          "subcategories": []
-        },
-        {
           "id": "pro_electro",
           "name": "Pro Electro",
           "aliases": [
             "pro_electro"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "bac_l1informatique",
+          "name": "Bac L1informatique",
+          "aliases": [
+            "bac_l1informatique"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "bulletinscolaire",
+          "name": "Bulletinscolaire",
+          "aliases": [
+            "bulletinscolaire"
           ],
           "subcategories": []
         },
@@ -729,10 +480,10 @@
           "subcategories": []
         },
         {
-          "id": "d_cla",
-          "name": "D Cla",
+          "id": "gan_sante",
+          "name": "Gan Sante",
           "aliases": [
-            "d_cla"
+            "gan_sante"
           ],
           "subcategories": []
         },
@@ -749,30 +500,6 @@
           "name": "Notice",
           "aliases": [
             "notice"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "yahoo",
-          "name": "Yahoo",
-          "aliases": [
-            "yahoo"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "titre_sejour",
-          "name": "Titre Sejour",
-          "aliases": [
-            "titre_sejour"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "gan_sante",
-          "name": "Gan Sante",
-          "aliases": [
-            "gan_sante"
           ],
           "subcategories": []
         }
@@ -821,26 +548,10 @@
       ],
       "subcategories": [
         {
-          "id": "general",
-          "name": "General",
+          "id": "yahoo",
+          "name": "Yahoo",
           "aliases": [
-            "general"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "vignette",
-          "name": "Vignette",
-          "aliases": [
-            "vignette"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "directeur",
-          "name": "Directeur",
-          "aliases": [
-            "directeur"
+            "yahoo"
           ],
           "subcategories": []
         }
@@ -873,22 +584,6 @@
           "aliases": [
             "manual",
             "guide"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "cdiscount",
-          "name": "Cdiscount",
-          "aliases": [
-            "cdiscount"
-          ],
-          "subcategories": []
-        },
-        {
-          "id": "gan_sante",
-          "name": "Gan Sante",
-          "aliases": [
-            "gan_sante"
           ],
           "subcategories": []
         }
