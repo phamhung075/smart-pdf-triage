@@ -1,4 +1,4 @@
-import { ensureDirectoriesExist, CONFIG } from './config.js';
+import { ensureDirectoriesExist, CONFIG } from './infrastructure/settings.js';
 import { startWebServer } from './server/web_server.js';
 import { startMCPServer } from './mcp/server.js';
 import { runTriageScan } from './services/triage.service.js';

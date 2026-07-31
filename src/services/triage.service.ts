@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { CONFIG, BASE_DIR, ensureDirectoriesExist, reloadConfigFromDisk } from '../config.js';
+import { CONFIG, BASE_DIR, ensureDirectoriesExist, reloadConfigFromDisk } from '../infrastructure/settings.js';
 import { extractPDFContent } from './pdf.service.js';
 import { classifyPDFText, generateEmbedding, getCategoriesConfig, saveCategoriesConfig, getEntityDictionary } from './ai.service.js';
 import { ruleBasedClassify } from '../domain/classification.js';

@@ -1,6 +1,6 @@
 import { Ollama } from 'ollama';
 import fs from 'fs';
-import { CONFIG } from '../config.js';
+import { CONFIG } from '../infrastructure/settings.js';
 import { DocumentMetadataSchema, DocumentMetadata, CategoriesConfigSchema, CategoryItem, SubcategoryItem, EntityDictionarySchema, EntityDictionary } from '../domain/document.schema.js';
 import { logger } from '../infrastructure/logger.js';
 import { cleanAndParseJSON, ruleBasedClassify, isGroundedSubcategorySlug, normalizeSlug, buildCategoriesDescriptionStr } from '../domain/classification.js';

@@ -15,14 +15,14 @@ describe('config.ts', () => {
   describe('loadCustomSettings', () => {
     it('returns {} when settings.json does not exist', async () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
-      const { loadCustomSettings } = await import('./config.js');
+      const { loadCustomSettings } = await import('./settings.js');
       expect(loadCustomSettings()).toEqual({});
     });
 
     it('returns the parsed object when settings.json is valid JSON', async () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
       vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ input_dir: 'X' }) as any);
-      const { loadCustomSettings } = await import('./config.js');
+      const { loadCustomSettings } = await import('./settings.js');
       expect(loadCustomSettings()).toEqual({ input_dir: 'X' });
     });
 
@@ -30,7 +30,7 @@ describe('config.ts', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
       vi.mocked(fs.readFileSync).mockReturnValue('{not valid json' as any);
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const { loadCustomSettings } = await import('./config.js');
+      const { loadCustomSettings } = await import('./settings.js');
       expect(loadCustomSettings()).toEqual({});
       consoleErrorSpy.mockRestore();
     });
@@ -47,7 +47,7 @@ describe('config.ts', () => {
           personal_name_denylist: ['Alice', ' Bob '],
         }) as any
       );
-      const { CONFIG } = await import('./config.js');
+      const { CONFIG } = await import('./settings.js');
       expect(CONFIG.INPUT_DIR).toBe('/custom/in');
       expect(CONFIG.OUTPUT_ROOT_DIR).toBe('/custom/out');
       expect(CONFIG.OLLAMA_HOST).toBe('http://custom-host:1234');
@@ -60,14 +60,14 @@ describe('config.ts', () => {
         JSON.stringify({ ollama_model: 'kimi-k3:cloud' }) as any
       );
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const { CONFIG } = await import('./config.js');
+      const { CONFIG } = await import('./settings.js');
       expect(CONFIG.OLLAMA_MODEL).toBe('qwen3.5:9b');
       consoleWarnSpy.mockRestore();
     });
 
     it('defaults PERSONAL_NAME_DENYLIST when settings.json has none', async () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
-      const { CONFIG } = await import('./config.js');
+      const { CONFIG } = await import('./settings.js');
       expect(CONFIG.PERSONAL_NAME_DENYLIST).toEqual(['pham', 'dai', 'hung', 'thi', 'nguyen', 'huyen']);
     });
   });
@@ -75,7 +75,7 @@ describe('config.ts', () => {
   describe('updateConfig', () => {
     it('mutates CONFIG in place and persists sanitized settings to disk', async () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
-      const { CONFIG, updateConfig } = await import('./config.js');
+      const { CONFIG, updateConfig } = await import('./settings.js');
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       updateConfig({ input_dir: '/new/in', ollama_model: 'not-allowed-model' });
       expect(CONFIG.INPUT_DIR).toBe('/new/in');
@@ -93,7 +93,7 @@ describe('config.ts', () => {
     it('re-reads settings.json and mutates the existing CONFIG object', async () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
       vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ input_dir: '/first' }) as any);
-      const { CONFIG, reloadConfigFromDisk } = await import('./config.js');
+      const { CONFIG, reloadConfigFromDisk } = await import('./settings.js');
       expect(CONFIG.INPUT_DIR).toBe('/first');
 
       vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ input_dir: '/second' }) as any);
