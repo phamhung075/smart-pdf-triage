@@ -1,7 +1,7 @@
 import { CONFIG } from '../infrastructure/settings.js';
-import { DocumentMetadataSchema, DocumentMetadata, SubcategoryItem } from '../domain/document.schema.js';
+import { DocumentMetadataSchema, DocumentMetadata } from '../domain/document.schema.js';
 import { logger } from '../infrastructure/logger.js';
-import { cleanAndParseJSON, ruleBasedClassify, isGroundedSubcategorySlug, normalizeSlug, buildCategoriesDescriptionStr } from '../domain/classification.js';
+import { cleanAndParseJSON, ruleBasedClassify, buildCategoriesDescriptionStr } from '../domain/classification.js';
 import { buildClassificationPrompt } from '../domain/prompt.js';
 import { refineClassification, resolveCategory, resolveSubcategory } from '../domain/classification-resolution.js';
 import { getCategoriesConfig, saveCategoriesConfig } from '../infrastructure/categories-store.js';

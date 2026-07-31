@@ -60,7 +60,7 @@ describe('classifyPDFText', () => {
           categorie: 'invoices', subcategorie: 'sfr', summary: 's', tags: [], markdown_content: 'm',
         }),
       });
-    const { classifyPDFText } = await import('./ai.service.js');
+    const { classifyPDFText } = await import('./classify-document.js');
     await classifyPDFText('SFR Facture Total TTC 45.99', 'facture.pdf');
     expect(generateMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ think: false }));
   });
@@ -75,7 +75,7 @@ describe('classifyPDFText', () => {
           tags: ['sfr'], markdown_content: '# Facture',
         }),
       });
-    const { classifyPDFText } = await import('./ai.service.js');
+    const { classifyPDFText } = await import('./classify-document.js');
     const result = await classifyPDFText('SFR Facture Total TTC 45.99', 'facture.pdf');
     expect(result.categorie).toBe('invoices');
     expect(result.subcategorie).toBe('sfr');
@@ -89,7 +89,7 @@ describe('classifyPDFText', () => {
         response: '',
         thinking: JSON.stringify({ titre: 'Facture SFR', categorie: 'invoices', subcategorie: 'sfr' }),
       });
-    const { classifyPDFText } = await import('./ai.service.js');
+    const { classifyPDFText } = await import('./classify-document.js');
     const result = await classifyPDFText('SFR Facture Total TTC 45.99', 'facture.pdf');
     // classifyPDFText never reads response.thinking — this only resolves correctly via the
     // try/catch fallback to ruleBasedClassify, which independently recognizes 'sfr' + 'total ttc'.
