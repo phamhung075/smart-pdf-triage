@@ -9,7 +9,8 @@ import { CONFIG, BASE_DIR, updateConfig } from '../config.js';
 import { getAllDocuments, getDocumentById, updateDocumentRecord, getDb, getCategorySubcategoryStats } from '../db/database.js';
 import { getCategoriesConfig, saveCategoriesConfig, setOnCategoryCreatedCallback, checkModelCanGenerate } from '../services/ai.service.js';
 import { syncJSONRegistry } from '../services/json_registry.service.js';
-import { runTriageScan, repairRegistry, relocalizeFileIfNeeded, getPDFsRecursively, findActualFileOnDisk, reclassifyAndRelocalizeDocument, clearRegistryAndMoveArchiveToRaws, ensureCategoryAndSubcategoryExist, isForbiddenSubcategory } from '../services/triage.service.js';
+import { runTriageScan, repairRegistry, relocalizeFileIfNeeded, getPDFsRecursively, findActualFileOnDisk, reclassifyAndRelocalizeDocument, clearRegistryAndMoveArchiveToRaws, ensureCategoryAndSubcategoryExist } from '../services/triage.service.js';
+import { isForbiddenSubcategory } from '../domain/taxonomy.js';
 import { logger } from '../services/logger.service.js';
 import { UpdateDocumentSchema, SystemSettingsSchema, CategoriesConfigSchema } from '../domain/document.schema.js';
 

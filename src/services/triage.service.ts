@@ -6,6 +6,7 @@ import { classifyPDFText, generateEmbedding, ruleBasedClassify, getCategoriesCon
 import { getDocumentByChecksum, insertDocumentRecord, updateDocumentRecord, getAllDocuments, getDb, getDocumentById } from '../db/database.js';
 import { syncJSONRegistry } from './json_registry.service.js';
 import { logger } from './logger.service.js';
+import { isYearString, isForbiddenSubcategory, isPathInsideDir, computeCanonicalPath } from '../domain/taxonomy.js';
 
 // Cross-process guard: the web server's own auto-watcher/manual-scan/repair/clear
 // routes already serialize themselves via an in-memory flag, but that can't stop a
@@ -56,15 +57,6 @@ export interface TriageResultItem {
   status: string;
 }
 
-// True only if `fullPath` IS `dirPath`, or is actually nested inside it — a plain
-// string-prefix check would also match an unrelated sibling that merely shares a
-// prefix (e.g. "__archive" vs "__archive_old").
-function isPathInsideDir(fullPath: string, dirPath: string): boolean {
-  const normFull = path.normalize(fullPath).toLowerCase();
-  const normDir = path.normalize(dirPath).toLowerCase();
-  return normFull === normDir || normFull.startsWith(normDir + path.sep);
-}
-
 export function getPDFsRecursively(dir: string, ignoreDir?: string): string[] {
   let results: string[] = [];
   if (!fs.existsSync(dir)) return results;
@@ -102,47 +94,6 @@ export function getAllFilesRecursively(dir: string): string[] {
     }
   }
   return results;
-}
-
-export function isYearString(str?: string): boolean {
-  return !!str && /^\d{4}$/.test(str.trim());
-}
-
-// Golden Rule #4: general/other/divers/empty/year-only are never valid final
-// subcategories — any write path that lets a caller set an explicit subcategory
-// must reject these, not just the initial classification flow.
-const FORBIDDEN_SUBCATEGORIES = new Set(['general', 'other', 'divers']);
-export function isForbiddenSubcategory(subcategory?: string): boolean {
-  if (!subcategory) return true;
-  const normalized = subcategory.toLowerCase().trim();
-  if (normalized.length === 0) return true;
-  return FORBIDDEN_SUBCATEGORIES.has(normalized) || isYearString(normalized);
-}
-
-export function computeCanonicalPath(
-  originalPath: string,
-  category: string,
-  subcategory?: string,
-  dateStr?: string
-): string {
-  const file = path.basename(originalPath);
-  const cleanCat = category ? category.toLowerCase().trim() : 'other';
-  let cleanSub = subcategory ? subcategory.toLowerCase().trim() : 'general';
-
-  if (isYearString(cleanSub)) {
-    cleanSub = 'general';
-  }
-
-  let yearStr = new Date().getFullYear().toString();
-  if (dateStr && dateStr.length >= 4) {
-    const match = dateStr.match(/\b(20\d{2})\b/);
-    if (match) {
-      yearStr = match[1];
-    }
-  }
-
-  const subParts = cleanSub.split(/[\/\\]+/).filter(Boolean);
-  return path.join(CONFIG.OUTPUT_ROOT_DIR, cleanCat, ...subParts, yearStr, file);
 }
 
 // Moves sourcePath to desiredTargetPath without the check-then-act race a plain
@@ -183,7 +134,7 @@ export function relocalizeFileIfNeeded(
   subcategory?: string,
   dateStr?: string
 ): { newPath: string; moved: boolean } {
-  const targetPath = computeCanonicalPath(filePath, category, subcategory, dateStr);
+  const targetPath = computeCanonicalPath(filePath, category, CONFIG.OUTPUT_ROOT_DIR, subcategory, dateStr);
 
   const normTarget = path.normalize(targetPath).toLowerCase();
   const normCurrent = path.normalize(filePath).toLowerCase();
