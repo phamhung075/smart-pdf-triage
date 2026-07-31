@@ -6,9 +6,9 @@ Owns SQLite, schemas, and the JSON registry mirror. Guarantees the DB is the sou
 
 ## Owns
 
-- `src/db/database.ts` — connection, schema, migrations, CRUD helpers, FTS5.
-- `src/schemas/document.schema.ts` — Zod contracts.
-- `src/services/json_registry.service.ts` — SQLite → `registry.json` mirror (shared surface with `pipeline-engineer`).
+- `src/infrastructure/db/database.ts` — connection, schema, migrations, CRUD helpers, FTS5.
+- `src/domain/document.schema.ts` — Zod contracts.
+- `src/infrastructure/json-registry.ts` — SQLite → `registry.json` mirror (shared surface with `pipeline-engineer`).
 - `pdf_triage.db` runtime artifact.
 
 ## Must-read before editing

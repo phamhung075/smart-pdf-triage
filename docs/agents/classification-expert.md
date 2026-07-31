@@ -6,7 +6,9 @@ Owns the classifier — both the Ollama prompt and the deterministic rule-based 
 
 ## Owns
 
-- `src/services/ai.service.ts` — `classifyPDFText`, `ruleBasedClassify`, `getCategoriesConfig`, `saveCategoriesConfig`, `generateEmbedding`, prompt strings.
+- `src/application/classify-document.ts` — `classifyPDFText`.
+- `src/domain/classification.ts`, `src/domain/prompt.ts`, `src/domain/classification-resolution.ts` — `ruleBasedClassify`, classification logic, prompt strings.
+- `src/infrastructure/categories-store.ts` — `getCategoriesConfig`, `saveCategoriesConfig`.
 - `categories.json` — the taxonomy source of truth.
 
 ## Must-read before editing

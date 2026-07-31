@@ -6,8 +6,8 @@ Owns Ollama connectivity, model lifecycle, and the health endpoints. Small surfa
 
 ## Owns
 
-- `ensureOllamaModel()` in `src/services/ai.service.ts` (co-owned with `classification-expert` for prompt-related concerns).
-- `/api/ollama/status` and `/api/ollama/start` in `src/server/web_server.ts` (co-owned with `pipeline-engineer`).
+- `ensureOllamaModel()` in `src/infrastructure/ollama-client.ts` (co-owned with `classification-expert` for prompt-related concerns).
+- `/api/ollama/status` and `/api/ollama/start` in `src/infrastructure/http/web-server.ts` (co-owned with `pipeline-engineer`).
 - Model pinning: `CONFIG.OLLAMA_MODEL`, `CONFIG.OLLAMA_HOST`, `CONFIG.OLLAMA_EMBED_MODEL`.
 
 ## Must-read before editing

@@ -6,7 +6,7 @@ Owns the MCP stdio server. Exposes the registry to external agents cleanly and s
 
 ## Owns
 
-- `src/mcp/server.ts`
+- `src/infrastructure/mcp/mcp-server.ts`
 - MCP tool schemas and handlers.
 
 ## Must-read before editing

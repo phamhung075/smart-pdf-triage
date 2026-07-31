@@ -6,11 +6,11 @@ Owns the pipeline, HTTP surface, and SSE. If a file moves on disk or a document 
 
 ## Owns
 
-- `src/services/triage.service.ts` — scan, repair, relocalize, clear, canonical paths, file lookups.
-- `src/services/pdf.service.ts` — PDF text extraction + SHA-256 checksum.
-- `src/server/web_server.ts` — Express routes, SSE, 10 s auto-watcher.
-- `src/services/json_registry.service.ts` — JSON mirror sync (shared with db-registry-keeper).
-- `src/services/logger.service.ts`.
+- `src/application/triage-scan.ts`, `src/application/repair-registry.ts`, `src/application/relocalize-document.ts`, `src/application/clear-registry.ts` — scan, repair, relocalize, clear, canonical paths, file lookups.
+- `src/infrastructure/pdf-extractor.ts` — PDF text extraction + SHA-256 checksum.
+- `src/infrastructure/http/web-server.ts` — Express routes, SSE, 10 s auto-watcher.
+- `src/infrastructure/json-registry.ts` — JSON mirror sync (shared with db-registry-keeper).
+- `src/infrastructure/logger.ts`.
 - `src/index.ts` dispatcher.
 
 ## Must-read before editing
