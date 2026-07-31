@@ -1813,12 +1813,14 @@ git commit -m "refactor: move logger to src/infrastructure/logger.ts"
 **Files:**
 - Create: `src/infrastructure/settings.ts` (relocated from `src/config.ts`)
 - Delete: `src/config.ts`
-- Modify: `src/services/ai.service.ts`, `src/services/triage.service.ts`, `src/db/database.ts`, `src/server/web_server.ts` (import path only)
+- Modify: `src/services/ai.service.ts`, `src/services/triage.service.ts`, `src/db/database.ts`, `src/services/json_registry.service.ts`, `src/server/web_server.ts`, `src/index.ts` (import path only)
 - Create: `src/infrastructure/settings.test.ts` (relocated from `src/config.test.ts`)
 - Delete: `src/config.test.ts`
 
 **Interfaces:**
-- Produces: same exports (`BASE_DIR`, `SETTINGS_FILE`, `loadCustomSettings`, `CONFIG`, `reloadConfigFromDisk`, `updateConfig`, `ensureDirectoriesExist`), unchanged content, new import path `../infrastructure/settings.js` (or `./settings.js` for files already inside `src/infrastructure/`).
+- Produces: same exports (`BASE_DIR`, `SETTINGS_FILE`, `loadCustomSettings`, `CONFIG`, `reloadConfigFromDisk`, `updateConfig`, `ensureDirectoriesExist`), unchanged content, new import path `../infrastructure/settings.js` (or `./settings.js` for files already inside `src/infrastructure/`, or `./infrastructure/settings.js` for `index.ts`).
+
+**Correction (found during execution):** this step originally listed only 4 importers and said "5 occurrences" in the test file, and said `index.ts` would be handled later in Task 25. All three of those were wrong — verified against the actual codebase: (1) `src/services/json_registry.service.ts` also imports `CONFIG` from `../config.js` and was missing from the list; (2) the test file has 8 dynamic-import occurrences, not 5 (3 in `loadCustomSettings`, 3 in `CONFIG derivation`, 1 in `updateConfig`, 1 in `reloadConfigFromDisk`); (3) deferring `index.ts` to Task 25 breaks `npm run build` for every task from this one through Task 24, since `index.ts` imports `./config.js` directly and that path stops existing the moment this task's `git mv` runs — the same landmine Task 20 already correctly avoided for `runTriageScan` by fixing `index.ts`'s import in the same task that moved it. This task now fixes `index.ts`'s `CONFIG`/`BASE_DIR`/`ensureDirectoriesExist` import too, following that same pattern. (Tasks 23 and 24 have matching corrections for their own `index.ts` dependency.)
 
 - [ ] **Step 1: Move the files**
 
@@ -1829,15 +1831,7 @@ git mv src/config.test.ts src/infrastructure/settings.test.ts
 
 No content changes needed in `settings.ts` itself — `config.ts` has no imports of other project files besides `fs`/`path`.
 
-In `src/infrastructure/settings.test.ts`, update the two dynamic-import lines — change every occurrence of:
-```ts
-await import('./config.js')
-```
-to:
-```ts
-await import('./settings.js')
-```
-(there are 5 occurrences: one in each of the 5 `it` blocks that do `const { ... } = await import('./config.js');`).
+In `src/infrastructure/settings.test.ts`, change every occurrence of `await import('./config.js')` to `await import('./settings.js')`. Grep the file for `config.js` after editing to confirm none remain — there are 8 occurrences (one per `it` block across all 4 describe blocks), not the 5 an earlier draft of this brief claimed.
 
 - [ ] **Step 2: Update every importer's import path**
 
@@ -1868,6 +1862,15 @@ to:
 import { CONFIG } from '../infrastructure/settings.js';
 ```
 
+In `src/services/json_registry.service.ts`, change:
+```ts
+import { CONFIG } from '../config.js';
+```
+to:
+```ts
+import { CONFIG } from '../infrastructure/settings.js';
+```
+
 In `src/server/web_server.ts`, change:
 ```ts
 import { CONFIG, BASE_DIR, updateConfig } from '../config.js';
@@ -1877,7 +1880,15 @@ to:
 import { CONFIG, BASE_DIR, updateConfig } from '../infrastructure/settings.js';
 ```
 
-`src/index.ts` also imports from `./config.js` — this file is updated in Task 25, not here, since it's the composition root touched last.
+In `src/index.ts`, change:
+```ts
+import { ensureDirectoriesExist, CONFIG } from './config.js';
+```
+to:
+```ts
+import { ensureDirectoriesExist, CONFIG } from './infrastructure/settings.js';
+```
+(`index.ts`'s other two imports — `startWebServer` from `./server/web_server.js` and `startMCPServer` from `./mcp/server.js` — are untouched here; those move in Tasks 23/24 respectively, each fixing its own `index.ts` line in its own task, same pattern as this one.)
 
 - [ ] **Step 3: Verify**
 
@@ -1889,7 +1900,7 @@ Expected: both clean, same 86 tests passing (the settings tests now run from `sr
 
 ```bash
 git add -A
-git commit -m "refactor: move config.ts to src/infrastructure/settings.ts, update all importers except index.ts"
+git commit -m "refactor: move config.ts to src/infrastructure/settings.ts, update all importers incl. index.ts"
 ```
 
 ---
@@ -3962,9 +3973,12 @@ git commit -m "refactor: move clearRegistryAndMoveArchiveToRaws to src/applicati
 **Files:**
 - Create: `src/infrastructure/http/web-server.ts` (relocated from `src/server/web_server.ts`)
 - Delete: `src/server/web_server.ts`
+- Modify: `src/index.ts` (import path only)
 
 **Interfaces:**
 - Produces: `createWebServer(): express.Express`, `startWebServer(port?: number): void` — unchanged behavior, new location.
+
+**Correction (same class of issue found and fixed in Task 8):** `src/index.ts` imports `startWebServer` from `./server/web_server.js` — that path stops existing the moment this task's `git mv` runs, so `index.ts` must be fixed in this same task (Step 3 below), not deferred to Task 25.
 
 - [ ] **Step 1: Move the file**
 
@@ -4028,21 +4042,32 @@ import { readActiveLockHolder, acquireProcessLock } from '../pid-lock.js';
 
 Nothing else in the file changes — every route handler, the SSE broadcast logic, the auto-watcher `setInterval`, and `acquireSingleInstanceLock`/`startWebServer` all stay exactly as they are, since none of them reference a relative import path directly (they use the imported bindings, whose paths are fixed above).
 
-- [ ] **Step 3: Remove the now-empty `src/server/` directory**
+- [ ] **Step 3: Update `src/index.ts`'s import**
+
+Change:
+```ts
+import { startWebServer } from './server/web_server.js';
+```
+to:
+```ts
+import { startWebServer } from './infrastructure/http/web-server.js';
+```
+
+- [ ] **Step 4: Remove the now-empty `src/server/` directory**
 
 Verify with `ls src/server` that it's gone after the `git mv`.
 
-- [ ] **Step 4: Verify**
+- [ ] **Step 5: Verify**
 
 Run: `npm run build && npm test`
 
 Expected: both clean, same 86 tests.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
-git commit -m "refactor: move web_server.ts to src/infrastructure/http/web-server.ts"
+git commit -m "refactor: move web_server.ts to src/infrastructure/http/web-server.ts, update index.ts"
 ```
 
 ---
@@ -4054,9 +4079,12 @@ Same pattern as Task 23 — `mcp/server.ts`'s tool-handler logic doesn't change,
 **Files:**
 - Create: `src/infrastructure/mcp/mcp-server.ts` (relocated from `src/mcp/server.ts`)
 - Delete: `src/mcp/server.ts`
+- Modify: `src/index.ts` (import path only)
 
 **Interfaces:**
 - Produces: `startMCPServer(): Promise<void>` — unchanged behavior, new location.
+
+**Correction (same class of issue found and fixed in Task 8):** `src/index.ts` imports `startMCPServer` from `./mcp/server.js` — that path stops existing the moment this task's `git mv` runs, so `index.ts` must be fixed in this same task (Step 3 below), not deferred to Task 25.
 
 - [ ] **Step 1: Move the file**
 
@@ -4108,44 +4136,47 @@ import { UpdateDocumentSchema } from '../../domain/document.schema.js';
 
 Nothing else in the file changes.
 
-- [ ] **Step 3: Remove the now-empty `src/mcp/` directory**
+- [ ] **Step 3: Update `src/index.ts`'s import**
+
+Change:
+```ts
+import { startMCPServer } from './mcp/server.js';
+```
+to:
+```ts
+import { startMCPServer } from './infrastructure/mcp/mcp-server.js';
+```
+
+- [ ] **Step 4: Remove the now-empty `src/mcp/` directory**
 
 Verify with `ls src/mcp` that it's gone after the `git mv`.
 
-- [ ] **Step 4: Verify**
+- [ ] **Step 5: Verify**
 
 Run: `npm run build && npm test`
 
 Expected: both clean, same 86 tests.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
-git commit -m "refactor: move mcp/server.ts to src/infrastructure/mcp/mcp-server.ts"
+git commit -m "refactor: move mcp/server.ts to src/infrastructure/mcp/mcp-server.ts, update index.ts"
 ```
 
 ---
 
-## Task 25: `src/index.ts` — final import wiring
+## Task 25: `src/index.ts` — final wiring verification
 
-**Files:**
-- Modify: `src/index.ts`
+**Correction (found during Task 8's execution):** this task originally updated all 4 of `index.ts`'s imports here, at the end. That was wrong — deferring them left `npm run build` broken from Task 8 onward (the moment each dependency actually moved, `index.ts`'s stale import broke compilation). Each of the 4 imports has since been fixed in the same task that moved its target: `CONFIG`/`ensureDirectoriesExist` in Task 8, `runTriageScan` in Task 20, `startWebServer` in Task 23, `startMCPServer` in Task 24. This task is now verification-only — there should be nothing left to change.
 
-**Interfaces:** None new — this task only updates import paths in the composition root.
+**Files:** None modified.
 
-- [ ] **Step 1: Update the import block**
+**Interfaces:** None.
 
-`src/index.ts`'s `runTriageScan` import was already updated in Task 20 (Step 5) to `from './application/triage-scan.js'`. The other three imports still point at pre-restructure paths. Change:
+- [ ] **Step 1: Confirm `src/index.ts` needs no further changes**
 
-```ts
-import { ensureDirectoriesExist, CONFIG } from './config.js';
-import { startWebServer } from './server/web_server.js';
-import { startMCPServer } from './mcp/server.js';
-import { runTriageScan } from './application/triage-scan.js';
-```
-
-to:
+Read the current `src/index.ts`. Its import block should already read:
 
 ```ts
 import { ensureDirectoriesExist, CONFIG } from './infrastructure/settings.js';
@@ -4154,7 +4185,7 @@ import { startMCPServer } from './infrastructure/mcp/mcp-server.js';
 import { runTriageScan } from './application/triage-scan.js';
 ```
 
-The rest of the file (`main()`, the `scan`/`mcp`/default dispatch, the top-level `.catch`) is untouched.
+If it does NOT — i.e. if one of Tasks 8/20/23/24 didn't actually apply its `index.ts` fix — fix the discrepancy now (this is the last safe point to catch it before the boot smoke-check in Task 26), and report DONE_WITH_CONCERNS explaining which task's fix was missing.
 
 - [ ] **Step 2: Verify**
 
@@ -4162,12 +4193,7 @@ Run: `npm run build && npm test`
 
 Expected: both clean, same 86 tests. At this point every file under `src/` has been moved to its new home — confirm with `find src -type f -name "*.ts"` (or equivalent) that only `src/index.ts`, `src/domain/**`, `src/application/**`, and `src/infrastructure/**` remain (plus their `*.test.ts` siblings) — no `src/services/`, `src/schemas/`, `src/db/`, `src/server/`, `src/mcp/`, or `src/config.ts` left.
 
-- [ ] **Step 3: Commit**
-
-```bash
-git add -A
-git commit -m "refactor: update src/index.ts imports to final domain/application/infrastructure paths"
-```
+No commit for this task if Step 1 found nothing to change — it's verification-only. If Step 1 did find and fix a discrepancy, commit that fix with a message describing what was missing.
 
 ---
 
