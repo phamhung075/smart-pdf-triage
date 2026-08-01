@@ -2,7 +2,7 @@
   "name": "pdf_triage",
   "version": "1.0.0",
   "description": "Local PDF Triage, Categorization, SQLite/JSON Registry, Web UI & FastMCP Server",
-  "main": "dist/index.js",
+  "main": "desktop/main.cjs",
   "type": "module",
   "scripts": {
     "dev": "tsx watch --exclude \"*.db\" --exclude \"*.db-journal\" --exclude \"*.db-shm\" --exclude \"*.db-wal\" --exclude \"registry.json\" --exclude \"categories.json\" --exclude \"settings.json\" --exclude \"logs/**\" --exclude \".server.lock\" --exclude \".scan.lock\" src/index.ts",
@@ -44,9 +44,35 @@
     "@types/pdf-parse": "^1.1.4",
     "@types/sqlite3": "^3.1.11",
     "electron": "^41.7.1",
-    "electron-builder": "^26.15.3",
+    "electron-builder": "^25.1.8",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "@noble/hashes": "1.7.1"
+  },
+  "build": {
+    "appId": "com.smartpdftriage.app",
+    "productName": "Smart PDF Triage",
+    "npmRebuild": false,
+    "directories": {
+      "output": "dist-installer"
+    },
+    "files": [
+      "desktop/**/*",
+      "public/**/*",
+      "src/**/*",
+      "categories.json",
+      "entity_dictionary.json",
+      "package.json"
+    ],
+    "win": {
+      "target": "dir",
+      "publish": null
+    },
+    "nsis": {
+      "differentialPackage": false
+    }
   }
 }
