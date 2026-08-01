@@ -59,11 +59,15 @@ header {
   gap: 1rem;
 }
 
-.logo-icon {
-  font-size: 2.2rem;
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.header-logo-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+  vertical-align: middle;
+  flex-shrink: 0;
+  -webkit-text-fill-color: initial;
 }
 
 h1 {
