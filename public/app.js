@@ -622,27 +622,32 @@ function renderDocsGrid(docs) {
     card.className = 'doc-card';
 
     const tagsHtml = (doc.tags || []).map(t => `<span class="tag">#${t}</span>`).join(' ');
-    const categoryBadgeText = doc.subcategory && doc.subcategory !== 'general' 
-      ? `${doc.category.toUpperCase()} / ${doc.subcategory.toUpperCase().replace(/[\/\\]+/g, ' / ')}`
-      : doc.category.toUpperCase();
+    const catText = (doc.category || 'OTHER').toUpperCase();
+    const subText = doc.subcategory && doc.subcategory !== 'general' 
+      ? doc.subcategory.toUpperCase().replace(/[\/\\]+/g, ' / ')
+      : '';
 
     const targetPath = doc.new_path || doc.original_path;
     const displayContent = (doc.markdown_content || doc.raw_text || '').trim();
-    const contentHeader = doc.markdown_content ? '📝 Document Markdown (.md):' : '📜 PDF Text Content:';
+    const contentHeader = doc.markdown_content ? '📝 Markdown:' : '📜 PDF Snippet:';
 
     card.innerHTML = `
       <div>
         <div class="card-header">
-          <h3 class="card-title">${escapeHtml(doc.title)}</h3>
-          <span class="badge">${escapeHtml(categoryBadgeText)}</span>
+          <div class="card-title-row">
+            <h3 class="card-title" title="${escapeHtml(doc.title)}">${escapeHtml(doc.title)}</h3>
+          </div>
+          <div class="badge-row">
+            <span class="badge">${escapeHtml(catText)}</span>
+            ${subText ? `<span class="badge badge-sub">${escapeHtml(subText)}</span>` : ''}
+          </div>
         </div>
         <div class="meta-row">
           <span>📅 ${escapeHtml(doc.date || 'N/A')}</span>
           <span>🏷️ ${escapeHtml(doc.registre || 'No Ref')}</span>
         </div>
-        <div class="summary-box" style="background: rgba(15, 23, 42, 0.75); border-left: 3px solid #38bdf8; border-radius: 6px; padding: 0.65rem 0.85rem; margin: 0.5rem 0 0.75rem 0; font-size: 0.85rem; line-height: 1.45; color: #e2e8f0;">
-          <strong style="color: #38bdf8; display: block; margin-bottom: 0.25rem;">💡 Executive Summary:</strong>
-          ${escapeHtml(doc.summary || 'No summary available.')}
+        <div class="summary-box" title="${escapeHtml(doc.summary || '')}">
+          <strong style="color: #38bdf8;">💡 Summary:</strong> ${escapeHtml(doc.summary || 'No summary available.')}
         </div>
         <div class="doc-text-snippet">
           <div class="doc-text-snippet-header">${contentHeader}</div>
@@ -651,9 +656,9 @@ function renderDocsGrid(docs) {
         <div class="tags-row">${tagsHtml}</div>
       </div>
       <div class="card-actions">
-        <button class="btn-secondary" style="padding: 0.4rem 0.6rem; font-size: 0.8rem;" onclick="openFileLocation('${escapeJsString(targetPath)}')">📂 Location</button>
-        <button class="btn-secondary" style="padding: 0.4rem 0.6rem; font-size: 0.8rem; color: #a7f3d0;" onclick="openRelocalizeModal(${doc.id})" title="Relocalize & Correct Category/Subcategory">📍 Relocalize</button>
-        <button class="btn-secondary" style="padding: 0.4rem 0.6rem; font-size: 0.8rem;" onclick="openEditModal(${doc.id})">Read & Edit ✏️</button>
+        <button class="btn-secondary" onclick="openFileLocation('${escapeJsString(targetPath)}')">📂 Location</button>
+        <button class="btn-secondary" style="color: #a7f3d0;" onclick="openRelocalizeModal(${doc.id})" title="Relocalize & Correct Category/Subcategory">📍 Move</button>
+        <button class="btn-secondary" onclick="openEditModal(${doc.id})">✏️ Edit</button>
       </div>
     `;
 
