@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "tsx watch --exclude \"*.db\" --exclude \"*.db-journal\" --exclude \"*.db-shm\" --exclude \"*.db-wal\" --exclude \"registry.json\" --exclude \"categories.json\" --exclude \"settings.json\" --exclude \"logs/**\" --exclude \".server.lock\" --exclude \".scan.lock\" src/index.ts",
     "start": "tsx watch --exclude \"*.db\" --exclude \"*.db-journal\" --exclude \"*.db-shm\" --exclude \"*.db-wal\" --exclude \"registry.json\" --exclude \"categories.json\" --exclude \"settings.json\" --exclude \"logs/**\" --exclude \".server.lock\" --exclude \".scan.lock\" src/index.ts",
+    "desktop": "electron desktop/main.cjs",
+    "dist:exe": "electron-builder --win",
     "scan": "tsx src/index.ts scan",
     "mcp": "tsx src/index.ts mcp",
     "build": "tsc",
@@ -41,6 +43,8 @@
     "@types/node": "^22.13.5",
     "@types/pdf-parse": "^1.1.4",
     "@types/sqlite3": "^3.1.11",
+    "electron": "^41.7.1",
+    "electron-builder": "^26.15.3",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
     "vitest": "^4.1.10"

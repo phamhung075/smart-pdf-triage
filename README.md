@@ -116,7 +116,12 @@ git clone https://github.com/<your-username>/smart-pdf-triage.git
 cd smart-pdf-triage
 npm install
 cp settings.json.example settings.json
+
+# Web Server Mode:
 npm run dev
+
+# Desktop App Mode (Taskbar Tray & Auto Browser Launch):
+npm run desktop
 ```
 
 ---
