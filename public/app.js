@@ -456,13 +456,20 @@ function updateFilterSubcategoriesDropdown() {
 async function loadDocuments() {
   const searchEl = document.getElementById('searchInput');
   const query = searchEl ? searchEl.value.trim() : '';
-  const url = `/api/documents?q=${encodeURIComponent(query)}&category=${encodeURIComponent(activeCategory)}&subcategory=${encodeURIComponent(activeSubcategory)}`;
+  // Fetch documents matching search & activeCategory (without subcategory filter in URL so subcategory pills stay populated)
+  const url = `/api/documents?q=${encodeURIComponent(query)}&category=${encodeURIComponent(activeCategory)}`;
 
   try {
     const res = await fetch(url);
     const data = await res.json();
     allLoadedDocs = data.documents || [];
-    renderDocsGrid(allLoadedDocs);
+
+    // Filter documents locally by activeSubcategory if selected
+    const displayDocs = activeSubcategory
+      ? allLoadedDocs.filter(d => (d.subcategory || '').toLowerCase() === activeSubcategory.toLowerCase())
+      : allLoadedDocs;
+
+    renderDocsGrid(displayDocs);
     renderSubcategories();
   } catch (err) {
     console.error('Failed to load documents', err);
@@ -555,8 +562,8 @@ function renderSubcategories() {
     } else {
       allSubBtn.addEventListener('click', () => {
         activeSubcategory = '';
-        container.querySelectorAll('.sub-pill').forEach(p => p.classList.remove('active'));
-        allSubBtn.classList.add('active');
+        const filterSubSelect = document.getElementById('filterSubcategory');
+        if (filterSubSelect) filterSubSelect.value = '';
         loadDocuments();
       });
     }
@@ -576,9 +583,9 @@ function renderSubcategories() {
       btn.title = 'No documents in this subcategory';
     } else {
       btn.addEventListener('click', () => {
-        container.querySelectorAll('.sub-pill').forEach(p => p.classList.remove('active'));
-        btn.classList.add('active');
         activeSubcategory = subId;
+        const filterSubSelect = document.getElementById('filterSubcategory');
+        if (filterSubSelect) filterSubSelect.value = subId;
         loadDocuments();
       });
     }
