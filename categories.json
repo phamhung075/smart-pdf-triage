@@ -652,6 +652,14 @@
             "objectifcode"
           ],
           "subcategories": []
+        },
+        {
+          "id": "pole_emploi",
+          "name": "Pole Emploi",
+          "aliases": [
+            "pole_emploi"
+          ],
+          "subcategories": []
         }
       ]
     },
