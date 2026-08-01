@@ -1,7 +1,9 @@
 const { app, Tray, Menu, shell, nativeImage } = require('electron');
 const { spawn, exec } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 const http = require('http');
+const { pathToFileURL } = require('url');
 
 let tray = null;
 let serverProcess = null;
@@ -51,35 +53,35 @@ function startOllamaIfNeeded() {
 async function startExpressServer() {
   console.log('⚡ Auto-starting Express Web Server...');
   const appRoot = path.resolve(__dirname, '..');
+  const compiledEntry = path.join(appRoot, 'dist', 'index.js');
   
-  try {
-    const serverEntry = path.join(appRoot, 'dist', 'index.js');
-    await import(`file://${serverEntry.replace(/\\/g, '/')}`);
-    console.log('✅ Express Web Server running in Electron main process.');
-  } catch (err) {
-    console.warn('Could not dynamically import dist/index.js, spawning node process fallback:', err.message);
-    const nodeExecutable = process.execPath;
-    const tsxCli = path.join(appRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
-    const tsEntry = path.join(appRoot, 'src', 'index.ts');
-
-    serverProcess = spawn(nodeExecutable, [tsxCli, tsEntry], {
-      cwd: appRoot,
-      stdio: 'pipe',
-      env: { ...process.env, PORT: String(PORT), ELECTRON_RUN_AS_NODE: '1' }
-    });
-
-    serverProcess.on('error', (spawnErr) => {
-      console.error('Server process spawn error:', spawnErr.message);
-    });
-
-    serverProcess.stdout?.on('data', (data) => {
-      console.log(`[SERVER] ${data.toString().trim()}`);
-    });
-
-    serverProcess.stderr?.on('data', (data) => {
-      console.error(`[SERVER ERR] ${data.toString().trim()}`);
-    });
+  if (fs.existsSync(compiledEntry)) {
+    try {
+      const fileUrl = pathToFileURL(compiledEntry).href;
+      await import(fileUrl);
+      console.log('✅ Express Web Server initialized successfully from dist/index.js.');
+      return;
+    } catch (err) {
+      console.error('Error importing dist/index.js:', err);
+    }
   }
+
+  console.log('Falling back to dev tsx spawner...');
+  const tsEntry = path.join(appRoot, 'src', 'index.ts');
+  const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  serverProcess = spawn(cmd, ['tsx', tsEntry], {
+    cwd: appRoot,
+    stdio: 'pipe',
+    env: { ...process.env, PORT: String(PORT) }
+  });
+
+  serverProcess.stdout?.on('data', (data) => {
+    console.log(`[SERVER] ${data.toString().trim()}`);
+  });
+
+  serverProcess.stderr?.on('data', (data) => {
+    console.error(`[SERVER ERR] ${data.toString().trim()}`);
+  });
 }
 
 function openDashboardInBrowser() {
