@@ -1,15 +1,29 @@
 {
   "categories": [
     {
+      "id": "factures_clients",
+      "name": "Factures Clients",
+      "description": "Factures de vente émises aux clients et prestations facturées",
+      "aliases": [
+        "facture_client",
+        "client_invoice",
+        "sales_invoice",
+        "factures_clients",
+        "facture_emise"
+      ],
+      "subcategories": []
+    },
+    {
       "id": "invoices",
-      "name": "Factures",
-      "description": "Factures, reçus, quittances et bulletins",
+      "name": "Factures Fournisseurs",
+      "description": "Factures d'achat reçues des fournisseurs et prestataires",
       "aliases": [
         "facture",
         "invoice",
         "bill",
         "receipt",
-        "factures"
+        "factures",
+        "facture_fournisseur"
       ],
       "subcategories": [
         {
@@ -62,6 +76,86 @@
           "name": "Recommand",
           "aliases": [
             "recommand"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "imprimerie_nationale",
+          "name": "Imprimerie Nationale",
+          "aliases": [
+            "imprimerie_nationale"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "holthoff_trading_gmbh",
+          "name": "Holthoff Trading Gmbh",
+          "aliases": [
+            "holthoff_trading_gmbh"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "bouyguestelecom",
+          "name": "Bouyguestelecom",
+          "aliases": [
+            "bouyguestelecom"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "bouygues_telecom",
+          "name": "Bouygues Telecom",
+          "aliases": [
+            "bouygues_telecom"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "free",
+          "name": "Free",
+          "aliases": [
+            "free"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "numericable",
+          "name": "Numericable",
+          "aliases": [
+            "numericable"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "rueducommerce",
+          "name": "Rueducommerce",
+          "aliases": [
+            "rueducommerce"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "vente_privee",
+          "name": "Vente Privee",
+          "aliases": [
+            "vente_privee"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "sncf",
+          "name": "Sncf",
+          "aliases": [
+            "sncf"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "ouigo",
+          "name": "Ouigo",
+          "aliases": [
+            "ouigo"
           ],
           "subcategories": []
         }
@@ -213,6 +307,30 @@
           "name": "France Travail",
           "aliases": [
             "france_travail"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "cnaf",
+          "name": "Cnaf",
+          "aliases": [
+            "cnaf"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "inpi",
+          "name": "Inpi",
+          "aliases": [
+            "inpi"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "dgfip",
+          "name": "Dgfip",
+          "aliases": [
+            "dgfip"
           ],
           "subcategories": []
         }
@@ -390,6 +508,22 @@
             "allianz"
           ],
           "subcategories": []
+        },
+        {
+          "id": "novys",
+          "name": "Novys",
+          "aliases": [
+            "novys"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "suravenir_assurances",
+          "name": "Suravenir Assurances",
+          "aliases": [
+            "suravenir_assurances"
+          ],
+          "subcategories": []
         }
       ]
     },
@@ -502,6 +636,22 @@
             "notice"
           ],
           "subcategories": []
+        },
+        {
+          "id": "nexa_digital_school",
+          "name": "Nexa Digital School",
+          "aliases": [
+            "nexa_digital_school"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "objectifcode",
+          "name": "Objectifcode",
+          "aliases": [
+            "objectifcode"
+          ],
+          "subcategories": []
         }
       ]
     },
@@ -552,6 +702,86 @@
           "name": "Yahoo",
           "aliases": [
             "yahoo"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "caissedesdepots",
+          "name": "Caissedesdepots",
+          "aliases": [
+            "caissedesdepots"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "sfr",
+          "name": "Sfr",
+          "aliases": [
+            "sfr"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "france_travail",
+          "name": "France Travail",
+          "aliases": [
+            "france_travail"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "team_marseille_euromed",
+          "name": "Team Marseille Euromed",
+          "aliases": [
+            "team_marseille_euromed"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "inpi",
+          "name": "Inpi",
+          "aliases": [
+            "inpi"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "laposte",
+          "name": "Laposte",
+          "aliases": [
+            "laposte"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "hdjpaca",
+          "name": "Hdjpaca",
+          "aliases": [
+            "hdjpaca"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "cdiscount",
+          "name": "Cdiscount",
+          "aliases": [
+            "cdiscount"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "ouigo",
+          "name": "Ouigo",
+          "aliases": [
+            "ouigo"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "pole_emploi",
+          "name": "Pole Emploi",
+          "aliases": [
+            "pole_emploi"
           ],
           "subcategories": []
         }
@@ -609,6 +839,14 @@
             "project"
           ],
           "subcategories": []
+        },
+        {
+          "id": "kpi_groupe",
+          "name": "Kpi Groupe",
+          "aliases": [
+            "kpi_groupe"
+          ],
+          "subcategories": []
         }
       ]
     },
@@ -627,8 +865,41 @@
             "pacifique4"
           ],
           "subcategories": []
+        },
+        {
+          "id": "france_travail",
+          "name": "France Travail",
+          "aliases": [
+            "france_travail"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "by_conseil",
+          "name": "By Conseil",
+          "aliases": [
+            "by_conseil"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "pole_emploi",
+          "name": "Pole Emploi",
+          "aliases": [
+            "pole_emploi"
+          ],
+          "subcategories": []
         }
       ]
+    },
+    {
+      "id": "general",
+      "name": "General",
+      "description": "Category auto-created for General",
+      "aliases": [
+        "general"
+      ],
+      "subcategories": []
     }
   ]
 }

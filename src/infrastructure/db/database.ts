@@ -47,6 +47,16 @@ async function initSchema(db: Database): Promise<void> {
       description TEXT DEFAULT '',
       aliases TEXT DEFAULT '[]'
     );
+
+    CREATE TABLE IF NOT EXISTS blocked_files (
+      original_path TEXT PRIMARY KEY,
+      filename TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      message TEXT NOT NULL,
+      mtime_ms REAL NOT NULL,
+      size INTEGER NOT NULL,
+      blocked_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Migration: add subcategory and markdown_content columns if missing
@@ -247,6 +257,59 @@ export async function getDocumentById(id: number): Promise<DocumentRecord | unde
 export async function getDocumentByChecksum(checksum: string): Promise<DocumentRecord | undefined> {
   const db = await getDb();
   return db.get<DocumentRecord>('SELECT * FROM documents WHERE checksum = ?', [checksum]);
+}
+
+export interface BlockedFileRecord {
+  original_path: string;
+  filename: string;
+  reason: string;
+  message: string;
+  mtime_ms: number;
+  size: number;
+  blocked_at: string;
+}
+
+export async function getBlockedFile(originalPath: string): Promise<BlockedFileRecord | undefined> {
+  const db = await getDb();
+  return db.get<BlockedFileRecord>('SELECT * FROM blocked_files WHERE original_path = ?', [originalPath]);
+}
+
+export async function upsertBlockedFile(entry: {
+  original_path: string;
+  filename: string;
+  reason: string;
+  message: string;
+  mtime_ms: number;
+  size: number;
+}): Promise<void> {
+  const db = await getDb();
+  await db.run(
+    `INSERT INTO blocked_files (original_path, filename, reason, message, mtime_ms, size, blocked_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(original_path) DO UPDATE SET
+       filename = excluded.filename,
+       reason = excluded.reason,
+       message = excluded.message,
+       mtime_ms = excluded.mtime_ms,
+       size = excluded.size,
+       blocked_at = excluded.blocked_at`,
+    [entry.original_path, entry.filename, entry.reason, entry.message, entry.mtime_ms, entry.size, new Date().toISOString()]
+  );
+}
+
+export async function deleteBlockedFile(originalPath: string): Promise<void> {
+  const db = await getDb();
+  await db.run('DELETE FROM blocked_files WHERE original_path = ?', [originalPath]);
+}
+
+export async function pruneBlockedFiles(existingPaths: string[]): Promise<void> {
+  const db = await getDb();
+  const rows = await db.all<{ original_path: string }[]>('SELECT original_path FROM blocked_files');
+  const existingSet = new Set(existingPaths);
+  const stale = rows.filter(r => !existingSet.has(r.original_path));
+  for (const row of stale) {
+    await db.run('DELETE FROM blocked_files WHERE original_path = ?', [row.original_path]);
+  }
 }
 
 export async function getCategorySubcategoryStats(): Promise<{

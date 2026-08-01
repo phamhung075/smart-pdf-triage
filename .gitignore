@@ -19,9 +19,13 @@ organized/*
 # Runtime registry mirror (personal document metadata)
 registry.json
 
+# Local user settings (contains private folder paths)
+settings.json
+
 # Environment variables & Logs
 .env
 *.log
+logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

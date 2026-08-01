@@ -44,6 +44,24 @@ Rewritten on every insert / update / relocalize.
 
 Present in schema but **not** the taxonomy source of truth. The live taxonomy is `categories.json`. Do not query `categories_db` for classification; treat it as reserved for a future migration.
 
+## `blocked_files` table
+
+Skip-cache for permanently unprocessable files in `__raws`, so `runTriageScan` doesn't re-extract, re-classify, and re-log the same file on every 10 s auto-watcher tick. A file only gets a row here when it never made it to `documents` — no text extracted, or subcategory resolved to `general`/`other`/`divers`/empty.
+
+| Column           | Type     | Notes                                                    |
+| ---------------- | -------- | --------------------------------------------------------- |
+| `original_path`  | TEXT     | PK — full path in `__raws`                                |
+| `filename`       | TEXT     | Basename, for display                                     |
+| `reason`         | TEXT     | `NO_TEXT_EXTRACTED` \| `NO_SUBCATEGORY`                    |
+| `message`        | TEXT     | User-facing text, replayed verbatim on skip                |
+| `mtime_ms`       | REAL     | File mtime at block time — cache key, paired with `size`  |
+| `size`           | INTEGER  | File size in bytes — cache key, paired with `mtime_ms`    |
+| `blocked_at`     | DATETIME | ISO, set on insert and refreshed on every re-upsert        |
+
+Four helpers in `src/infrastructure/db/database.ts`: `getBlockedFile(originalPath)`, `upsertBlockedFile(entry)` (upsert keyed on `original_path`), `deleteBlockedFile(originalPath)`, `pruneBlockedFiles(existingPaths)` (deletes rows whose path is no longer in `__raws`).
+
+Used by `runTriageScan` — see [Triage Pipeline](../workflows/triage-pipeline.md) for the full skip/retry flow: matching `mtime_ms`+`size` skips re-processing entirely and replays the stored `message`; a mismatch deletes the row and retries fresh; `pruneBlockedFiles` runs once per scan before the per-file loop.
+
 ## `categories.json` schema
 
 Validated by `CategoriesConfigSchema` (Zod). Structure:

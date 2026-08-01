@@ -1,9 +1,18 @@
+import fs from 'fs';
 import path from 'path';
 import { CONFIG, ensureDirectoriesExist, reloadConfigFromDisk } from '../infrastructure/settings.js';
 import { acquireScanLock } from './scan-lock.js';
 import { getPDFsRecursively } from '../infrastructure/pdf-scanner.js';
 import { extractPDFContent } from '../infrastructure/pdf-extractor.js';
-import { getDocumentByChecksum, insertDocumentRecord, updateDocumentRecord } from '../infrastructure/db/database.js';
+import {
+  getDocumentByChecksum,
+  insertDocumentRecord,
+  updateDocumentRecord,
+  getBlockedFile,
+  upsertBlockedFile,
+  deleteBlockedFile,
+  pruneBlockedFiles
+} from '../infrastructure/db/database.js';
 import { classifyPDFText } from './classify-document.js';
 import { generateEmbedding } from '../infrastructure/ollama-client.js';
 import { relocalizeFileIfNeeded } from './relocalize-document.js';
@@ -53,6 +62,7 @@ export async function runTriageScan(onProgress?: (event: TriageProgressEvent) =>
 
   const pdfFilePaths = getPDFsRecursively(CONFIG.INPUT_DIR, CONFIG.OUTPUT_ROOT_DIR);
   const filenames = pdfFilePaths.map(p => path.basename(p));
+  await pruneBlockedFiles(pdfFilePaths);
 
   onProgress?.({
     type: 'SCAN_STARTED',
@@ -68,6 +78,25 @@ export async function runTriageScan(onProgress?: (event: TriageProgressEvent) =>
     const file = path.basename(originalPath);
 
     try {
+      const fileStat = fs.statSync(originalPath);
+      const previouslyBlocked = await getBlockedFile(originalPath);
+      if (previouslyBlocked && previouslyBlocked.mtime_ms === fileStat.mtimeMs && previouslyBlocked.size === fileStat.size) {
+        // Same file content as last blocked attempt: skip re-extraction/re-classification
+        // and re-logging so an unfixable file doesn't spam the log every auto-watcher tick.
+        onProgress?.({
+          type: 'FILE_FAILED',
+          filename: file,
+          stage: 'FAILED',
+          message: previouslyBlocked.message
+        });
+        await new Promise(resolve => setTimeout(resolve, 50));
+        continue;
+      }
+      if (previouslyBlocked) {
+        // File content changed since it was blocked (e.g. user replaced it) — retry fresh.
+        await deleteBlockedFile(originalPath);
+      }
+
       onProgress?.({
         type: 'FILE_PROGRESS',
         filename: file,
@@ -79,12 +108,21 @@ export async function runTriageScan(onProgress?: (event: TriageProgressEvent) =>
 
       const cleanText = (raw_text || '').trim();
       if (!cleanText || cleanText.length < 10) {
+        const message = '❌ Blocked: No text extracted from PDF. Kept in __raws.';
         logger.warn('TRIAGE', `BLOCKED: No text extracted from PDF '${file}'. Kept in __raws.`, { originalPath });
+        await upsertBlockedFile({
+          original_path: originalPath,
+          filename: file,
+          reason: 'NO_TEXT_EXTRACTED',
+          message,
+          mtime_ms: fileStat.mtimeMs,
+          size: fileStat.size
+        });
         onProgress?.({
           type: 'FILE_FAILED',
           filename: file,
           stage: 'FAILED',
-          message: '❌ Blocked: No text extracted from PDF. Kept in __raws.'
+          message
         });
         await new Promise(resolve => setTimeout(resolve, 50));
         continue;
@@ -131,12 +169,21 @@ export async function runTriageScan(onProgress?: (event: TriageProgressEvent) =>
 
       const subcat = (metadata.subcategorie || '').toLowerCase().trim();
       if (!subcat || subcat === 'general' || subcat === 'other' || subcat === 'divers') {
+        const message = `❌ Blocked: Failed to assign specific subcategory to '${file}'. Kept in __raws.`;
         logger.warn('TRIAGE', `BLOCKED: No specific subcategory detected for '${file}' (subcat='${subcat}'). Kept in __raws.`, { originalPath });
+        await upsertBlockedFile({
+          original_path: originalPath,
+          filename: file,
+          reason: 'NO_SUBCATEGORY',
+          message,
+          mtime_ms: fileStat.mtimeMs,
+          size: fileStat.size
+        });
         onProgress?.({
           type: 'FILE_FAILED',
           filename: file,
           stage: 'FAILED',
-          message: `❌ Blocked: Failed to assign specific subcategory to '${file}'. Kept in __raws.`
+          message
         });
         await new Promise(resolve => setTimeout(resolve, 50));
         continue;

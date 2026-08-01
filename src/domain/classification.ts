@@ -173,7 +173,7 @@ export function cleanAndParseJSON(rawStr: string): any {
   }
 }
 
-export function ruleBasedClassify(rawText: string, filename: string, dictionary: EntityDictionary, personalNameDenylist: string[]): { categorie: string; subcategorie: string; title: string; date: string } {
+export function ruleBasedClassify(rawText: string, filename: string, dictionary: EntityDictionary, personalNameDenylist: string[]): { categorie: string; subcategorie: string; title: string; date: string; payment_status?: string; invoice_type?: string } {
   const combined = (filename + ' ' + rawText.substring(0, 4000)).toLowerCase();
 
   // Generic bank-statement signal phrases (same signals as the Qwen prompt's STEP 1)
@@ -185,35 +185,46 @@ export function ruleBasedClassify(rawText: string, filename: string, dictionary:
   let categorie = 'administrative';
   let subcategorie = 'general';
 
-  // Specific Bulletin de Salaire / Pay Slips Category (SEPARATE FROM INVOICES / FACTURES!)
+  // Specific Bulletin de Salaire / Pay Slips Category (Universal for all employers/companies)
   if (/bulletindesalaire|bulletin de salaire|bulletin de paie|fiche de paie/i.test(combined)) {
     categorie = 'bulletin_salaire';
-    if (/pro_electro|proelectro/i.test(combined)) subcategorie = 'pro_electro';
-    else if (/nextech/i.test(combined)) subcategorie = 'nextech';
-    else if (/cesi/i.test(combined)) subcategorie = 'cesi';
-    else if (/capgemini/i.test(combined)) subcategorie = 'capgemini';
-    else if (/pacifique/i.test(combined) || /2017|2018/.test(filename)) subcategorie = 'pacifique4';
-    else subcategorie = 'divers';
+    const dictEmployer = matchEntityDictionary(combined, ALL_ENTITY_DOMAINS, dictionary);
+    if (dictEmployer) {
+      subcategorie = dictEmployer.subcategorie;
+    } else {
+      const cleanName = filename.replace(/\.pdf$/i, '').replace(/[-_\s]+/g, '_').toLowerCase();
+      const words = cleanName.split('_').filter(w => w.length >= 3 && !/^\d+$/.test(w) && !['bulletin', 'salaire', 'paie', 'fiche', 'pdf', 'doc', 'copy', 'scan', 'de', 'du', 'des', 'le', 'la', 'les'].includes(w));
+      if (words.length > 0) {
+        const candidateSlug = normalizeSlug(words[0]);
+        if (isGroundedSubcategorySlug(candidateSlug, rawText, filename, personalNameDenylist)) {
+          subcategorie = candidateSlug;
+        } else {
+          subcategorie = 'employeur';
+        }
+      } else {
+        subcategorie = 'employeur';
+      }
+    }
   }
-  // Specific Internship Attestations
-  else if (/attestationstageproelectro|proelectro/i.test(combined)) {
+  // Internship Attestations (Universal for all educational institutions & companies)
+  else if (/attestation.*stage|stage/i.test(combined)) {
     categorie = 'education';
-    subcategorie = 'pro_electro';
+    subcategorie = 'attestation_stage';
   }
-  // Specific 2DDoc Contract Holder Domicile Proof Attestations
+  // 2DDoc Domicile Proof Attestations
   else if (/attestationtitulairecontrat2ddoc|2ddoc/i.test(combined)) {
     categorie = 'housing';
     subcategorie = 'justificatif_domicile';
   }
   // 1. Identity & Passports & Civil Records
-  else if (/(passeport|passport|carte d'identité|cni|cancuoccongdan|giaypheplaixe|giay phep lai xe|permis de conduire|titre de séjour|titresejour|carte vitale|cartevitale|acte de mariage|actemariage|acte de naissance|livret de famille)/i.test(combined)) {
+  else if (/(passeport|passport|carte d'identité|cni|cancuoccongdan|giaypheplaixe|giay phep lai xe|permis de conduire|titre(?:[-_ ][\p{L}\p{N}_-]+)?|carte vitale|cartevitale|acte de mariage|actemariage|acte de naissance|livret de famille)/iu.test(combined)) {
     categorie = 'identity';
-    if (/(passeport|passport)/i.test(combined)) subcategorie = 'passeport';
-    else if (/(titre de séjour|titresejour)/i.test(combined)) subcategorie = 'titre_sejour';
-    else if (/(carte vitale|cartevitale)/i.test(combined)) subcategorie = 'carte_vitale';
-    else if (/(giaypheplaixe|giay phep lai xe|permis de conduire)/i.test(combined)) subcategorie = 'permis_conduire';
-    else if (/(cancuoccongdan|carte d'identité|cni)/i.test(combined)) subcategorie = 'carte_identite';
-    else if (/(actemariage|acte de mariage)/i.test(combined)) subcategorie = 'acte_mariage';
+    if (/(passeport|passport)(?:[-_ ][\p{L}\p{N}_-]+)?/iu.test(combined)) subcategorie = 'passeport';
+    else if (/(titre|carte[-_ ]?de[-_ ]?séjour|carte[-_ ]?sejour)(?:[-_ ][\p{L}\p{N}_-]+)?/iu.test(combined)) subcategorie = 'titre_sejour';
+    else if (/(carte vitale|cartevitale)(?:[-_ ][\p{L}\p{N}_-]+)?/iu.test(combined)) subcategorie = 'carte_vitale';
+    else if (/(giaypheplaixe|giay phep lai xe|permis de conduire|permis)(?:[-_ ][\p{L}\p{N}_-]+)?/iu.test(combined)) subcategorie = 'permis_conduire';
+    else if (/(cancuoccongdan|carte d'identité|cni)(?:[-_ ][\p{L}\p{N}_-]+)?/iu.test(combined)) subcategorie = 'carte_identite';
+    else if (/(actemariage|acte de mariage|acte de naissance)(?:[-_ ][\p{L}\p{N}_-]+)?/iu.test(combined)) subcategorie = 'acte_mariage';
   }
   // 2. Health / Medical
   else if (/\b(santé|sante|médical|medical|soins|dentaire|pharmacie|attestation de droits|attestationam|ameli|sécurité sociale|securite sociale|cpam|mutuelle|hospitalisation)\b/i.test(combined)) {
@@ -248,9 +259,11 @@ export function ruleBasedClassify(rawText: string, filename: string, dictionary:
     else if (/\bemployeur\b/i.test(combined)) subcategorie = 'attestation_employeur';
     else subcategorie = 'cdi_cdd';
   }
-  // 6. Vendor Invoices (EXCLUDING PAY SLIPS)
+  // 6. Enterprise Invoices (Client Sales vs Supplier Purchases)
   else if (/\b(facture n°|facture no|facture|invoice|quittance|montant à payer|total ttc)\b/i.test(combined)) {
-    categorie = 'invoices';
+    const isClientInvoice = /\b(facture client|facture de vente|facture émise|facturé à|destinataire|client_)\b/i.test(combined);
+    categorie = isClientInvoice ? 'factures_clients' : 'invoices';
+
     if (/\bsfr\b/i.test(combined)) subcategorie = 'sfr';
     else if (/\bedf\b/i.test(combined)) subcategorie = 'edf';
     else if (/\bengie\b/i.test(combined)) subcategorie = 'engie';
@@ -265,6 +278,16 @@ export function ruleBasedClassify(rawText: string, filename: string, dictionary:
         if (dictInsuranceViaFacture) {
           categorie = dictInsuranceViaFacture.categorie;
           subcategorie = dictInsuranceViaFacture.subcategorie;
+        } else {
+          // Dynamic Client or Vendor company name extraction from filename grounding
+          const cleanName = filename.replace(/\.pdf$/i, '').replace(/[-_\s]+/g, '_').toLowerCase();
+          const words = cleanName.split('_').filter(w => w.length >= 3 && !/^\d+$/.test(w) && !['facture', 'invoice', 'bill', 'receipt', 'client', 'fournisseur', 'supplier', 'pdf', 'doc', 'copy', 'scan', 'n°', 'no'].includes(w));
+          if (words.length > 0) {
+            const candidateSlug = normalizeSlug(words[0]);
+            if (isGroundedSubcategorySlug(candidateSlug, rawText, filename, personalNameDenylist)) {
+              subcategorie = candidateSlug;
+            }
+          }
         }
       }
     }
@@ -399,7 +422,12 @@ export function ruleBasedClassify(rawText: string, filename: string, dictionary:
 
   const title = filename.replace(/\.pdf$/i, '').replace(/[-_]+/g, ' ').trim();
 
-  return { categorie, subcategorie, title, date };
+  const isPaid = /\b(payé|payee|acquittée|acquittee|réglé|regle|virement|solde 0|déjà réglé|paye)\b/iu.test(combined);
+  const isUnpaid = /\b(à payer|a payer|en attente|reste à régler|reste a regler|échéance|echeance|solde à payer)\b/iu.test(combined);
+  const payment_status = isPaid ? 'PAID' : (isUnpaid ? 'UNPAID' : 'UNKNOWN');
+  const invoice_type = (categorie === 'factures_clients') ? 'CLIENT' : (categorie === 'invoices' ? 'SUPPLIER' : 'NONE');
+
+  return { categorie, subcategorie, title, date, payment_status, invoice_type };
 }
 
 export function buildCategoriesDescriptionStr(categoriesConfig: { categories: CategoryItem[] }, dictionary: EntityDictionary): string {

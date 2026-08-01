@@ -13,35 +13,49 @@ export interface ExtractedPDF {
 }
 
 async function safePdfParse(buffer: Buffer): Promise<{ text: string; numpages: number; info: any }> {
-  // 1. Try class-based constructor first (PDFParse in ES module mode)
-  if ((pdfPkg as any).PDFParse) {
-    try {
-      const instance = new (pdfPkg as any).PDFParse({ data: buffer });
-      const res = await instance.getText();
-      if (res && typeof res.text === 'string') {
-        return {
-          text: res.text,
-          numpages: res.numpages || res.total || 1,
-          info: res.info || {}
-        };
+  const originalWarn = console.warn;
+  try {
+    // Intercept and suppress low-level pdfjs TrueType font bytecode warnings (e.g. "Warning: TT: undefined function: 21")
+    console.warn = (...args: any[]) => {
+      const msg = args.map(a => (typeof a === 'string' ? a : String(a))).join(' ');
+      if (msg.includes('Warning: TT:') || msg.includes('TT: undefined function') || msg.includes('TT: invalid function')) {
+        return;
       }
-    } catch (err: any) {
-      logger.debug('PDF_PARSER', `Class PDFParse constructor failed: ${err.message}`);
-    }
-  }
-
-  // 2. Fallback to default function invocation if constructor is function
-  const handler = typeof pdfPkg === 'function' ? pdfPkg : ((pdfPkg as any).default || pdfPkg);
-  if (typeof handler === 'function') {
-    const res = await handler(buffer, { max: 0 });
-    return {
-      text: res.text || '',
-      numpages: res.numpages || 1,
-      info: res.info || {}
+      originalWarn(...args);
     };
-  }
 
-  throw new Error('Unable to find valid pdf-parse function or class constructor.');
+    // 1. Try class-based constructor first (PDFParse in ES module mode)
+    if ((pdfPkg as any).PDFParse) {
+      try {
+        const instance = new (pdfPkg as any).PDFParse({ data: buffer });
+        const res = await instance.getText();
+        if (res && typeof res.text === 'string') {
+          return {
+            text: res.text,
+            numpages: res.numpages || res.total || 1,
+            info: res.info || {}
+          };
+        }
+      } catch (err: any) {
+        logger.debug('PDF_PARSER', `Class PDFParse constructor failed: ${err.message}`);
+      }
+    }
+
+    // 2. Fallback to default function invocation if constructor is function
+    const handler = typeof pdfPkg === 'function' ? pdfPkg : ((pdfPkg as any).default || pdfPkg);
+    if (typeof handler === 'function') {
+      const res = await handler(buffer, { max: 0 });
+      return {
+        text: res.text || '',
+        numpages: res.numpages || 1,
+        info: res.info || {}
+      };
+    }
+
+    throw new Error('Unable to find valid pdf-parse function or class constructor.');
+  } finally {
+    console.warn = originalWarn;
+  }
 }
 
 export async function extractPDFContent(filePath: string): Promise<ExtractedPDF> {

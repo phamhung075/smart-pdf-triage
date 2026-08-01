@@ -135,24 +135,33 @@ describe('isGroundedSubcategorySlug', () => {
 
 describe('ruleBasedClassify', () => {
   it('classifies a pay slip under bulletin_salaire (never invoices), extracting employer + DD/MM/YYYY date', () => {
+    const dict = dictionaryWith({ gov: [{ slug: 'pacifique4', name: 'Pacifique 4', aliases: ['pacifique4'] }] });
     const result = ruleBasedClassify(
       'Bulletin de salaire Pacifique4 Salaire brut 3000 Net a payer 2400 01/03/2023',
       'bulletin_mars.pdf',
-      EMPTY_DICTIONARY,
+      dict,
       DEFAULT_PERSONAL_NAME_DENYLIST
     );
-    expect(result).toEqual({
-      categorie: 'bulletin_salaire',
-      subcategorie: 'pacifique4',
-      title: 'bulletin mars',
-      date: '2023-03-01',
-    });
+    expect(result.categorie).toBe('bulletin_salaire');
+    expect(result.subcategorie).toBe('pacifique4');
+    expect(result.title).toBe('bulletin mars');
+    expect(result.date).toBe('2023-03-01');
   });
 
   it('classifies a passport under identity/passeport', () => {
     const result = ruleBasedClassify('Republique Francaise Passeport N 12AB34567', 'doc.pdf', EMPTY_DICTIONARY, DEFAULT_PERSONAL_NAME_DENYLIST);
     expect(result.categorie).toBe('identity');
     expect(result.subcategorie).toBe('passeport');
+  });
+
+  it('classifies titre-An-Ngo.pdf and titre-Dung-Ngo.pdf under identity/titre_sejour', () => {
+    const res1 = ruleBasedClassify('Carte de sejour residence permit', 'titre-An-Ngo.pdf', EMPTY_DICTIONARY, DEFAULT_PERSONAL_NAME_DENYLIST);
+    expect(res1.categorie).toBe('identity');
+    expect(res1.subcategorie).toBe('titre_sejour');
+
+    const res2 = ruleBasedClassify('Residence permit France', 'titre-Dung-Ngo.pdf', EMPTY_DICTIONARY, DEFAULT_PERSONAL_NAME_DENYLIST);
+    expect(res2.categorie).toBe('identity');
+    expect(res2.subcategorie).toBe('titre_sejour');
   });
 
   it('classifies a plain tax notice under administrative/impot', () => {
@@ -179,12 +188,33 @@ describe('ruleBasedClassify', () => {
 
   it('classifies a vendor invoice via the hardcoded regex branch, with compact YYYYMMDD date', () => {
     const result = ruleBasedClassify('Facture SFR n 123456 Total TTC 45.99 EUR 20240512', 'facture.pdf', EMPTY_DICTIONARY, DEFAULT_PERSONAL_NAME_DENYLIST);
-    expect(result).toEqual({
-      categorie: 'invoices',
-      subcategorie: 'sfr',
-      title: 'facture',
-      date: '2024-05-12',
-    });
+    expect(result.categorie).toBe('invoices');
+    expect(result.subcategorie).toBe('sfr');
+    expect(result.invoice_type).toBe('SUPPLIER');
+    expect(result.date).toBe('2024-05-12');
+  });
+
+  it('classifies a client sales invoice under factures_clients and detects PAID / UNPAID status', () => {
+    const resClientPaid = ruleBasedClassify(
+      'Facture client N 2026-001 Destinataire Acme Corp Acme Corp Montant 1500 EUR PAYÉ PAR VIREMENT',
+      'facture_client_acme.pdf',
+      EMPTY_DICTIONARY,
+      DEFAULT_PERSONAL_NAME_DENYLIST
+    );
+    expect(resClientPaid.categorie).toBe('factures_clients');
+    expect(resClientPaid.subcategorie).toBe('acme');
+    expect(resClientPaid.invoice_type).toBe('CLIENT');
+    expect(resClientPaid.payment_status).toBe('PAID');
+
+    const resClientUnpaid = ruleBasedClassify(
+      'Facture de vente N 2026-002 Client Beta Solde à régler avant le 15/09/2026 EN ATTENTE',
+      'facture_client_beta.pdf',
+      EMPTY_DICTIONARY,
+      DEFAULT_PERSONAL_NAME_DENYLIST
+    );
+    expect(resClientUnpaid.categorie).toBe('factures_clients');
+    expect(resClientUnpaid.invoice_type).toBe('CLIENT');
+    expect(resClientUnpaid.payment_status).toBe('UNPAID');
   });
 
   it('classifies a vendor invoice via the entity-dictionary fallback when no hardcoded regex matches', () => {

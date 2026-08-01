@@ -32,11 +32,10 @@ function sanitizeOllamaModel(model: unknown): string {
 }
 
 // Default set of owner/household name tokens (lowercase) that must never be accepted as
-// a subcategory — see PERSONAL_NAME_DENYLIST usage in domain/classification.ts. Only used
-// when settings.json doesn't define its own list, so a fresh install still has the protection.
-const DEFAULT_PERSONAL_NAME_DENYLIST = ['pham', 'dai', 'hung', 'thi', 'nguyen', 'huyen'];
+// a subcategory — see PERSONAL_NAME_DENYLIST usage in domain/classification.ts. Fully configurable via settings.json.
+const DEFAULT_PERSONAL_NAME_DENYLIST: string[] = [];
 function sanitizePersonalNameDenylist(list: unknown): string[] {
-  if (!Array.isArray(list) || list.length === 0) return DEFAULT_PERSONAL_NAME_DENYLIST;
+  if (!Array.isArray(list)) return DEFAULT_PERSONAL_NAME_DENYLIST;
   return list.map(v => String(v).toLowerCase().trim()).filter(Boolean);
 }
 

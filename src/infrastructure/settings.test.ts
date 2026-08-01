@@ -65,10 +65,10 @@ describe('config.ts', () => {
       consoleWarnSpy.mockRestore();
     });
 
-    it('defaults PERSONAL_NAME_DENYLIST when settings.json has none', async () => {
+    it('defaults PERSONAL_NAME_DENYLIST to an empty array when settings.json has none', async () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
       const { CONFIG } = await import('./settings.js');
-      expect(CONFIG.PERSONAL_NAME_DENYLIST).toEqual(['pham', 'dai', 'hung', 'thi', 'nguyen', 'huyen']);
+      expect(CONFIG.PERSONAL_NAME_DENYLIST).toEqual([]);
     });
   });
 
