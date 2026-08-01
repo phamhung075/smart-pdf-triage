@@ -1,8 +1,9 @@
 # Dependencies
 node_modules/
 
-# TypeScript Build Output
+# TypeScript & Installer Build Output
 dist/
+dist-installer/
 
 # SQLite Database Files
 *.db

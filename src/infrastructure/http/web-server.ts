@@ -16,7 +16,7 @@ import { runTriageScan } from '../../application/triage-scan.js';
 import { relocalizeFileIfNeeded, findActualFileOnDisk, reclassifyAndRelocalizeDocument, ensureCategoryAndSubcategoryExist } from '../../application/relocalize-document.js';
 import { getPDFsRecursively } from '../pdf-scanner.js';
 import { isForbiddenSubcategory } from '../../domain/taxonomy.js';
-import { logger } from '../logger.js';
+import { logger, getRecentLogs, logEmitter } from '../logger.js';
 import { UpdateDocumentSchema, SystemSettingsSchema, CategoriesConfigSchema } from '../../domain/document.schema.js';
 import { readActiveLockHolder, acquireProcessLock } from '../pid-lock.js';
 
@@ -203,6 +203,40 @@ export function createWebServer(): express.Express {
     } catch (err: any) {
       res.status(400).json({ error: err.message });
     }
+  });
+
+  // Get recent terminal log history
+  app.get('/api/logs/recent', (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 200;
+      const logs = getRecentLogs(limit);
+      res.json({ logs });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Live SSE stream for real-time terminal logs
+  app.get('/api/logs/stream', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    // Send initial snapshot
+    const initialLogs = getRecentLogs(100);
+    res.write(`data: ${JSON.stringify({ type: 'INIT', logs: initialLogs })}\n\n`);
+
+    const logListener = (entry: any) => {
+      res.write(`data: ${JSON.stringify({ type: 'LOG', entry })}\n\n`);
+    };
+
+    logEmitter.on('log', logListener);
+
+    req.on('close', () => {
+      logEmitter.removeListener('log', logListener);
+      res.end();
+    });
   });
 
   // Get categories with dynamic document counters from DB

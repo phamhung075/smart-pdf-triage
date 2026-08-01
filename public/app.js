@@ -1377,3 +1377,196 @@ function escapeJsString(str) {
   if (!str) return '';
   return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
+
+/* Terminal Logs Stream Manager */
+let logEventSource = null;
+let allLogEntries = [];
+
+function setupTerminalLogs() {
+  const btnLogs = document.getElementById('btnLogs');
+  const logsModal = document.getElementById('logsModal');
+  const btnCloseLogsModal = document.getElementById('btnCloseLogsModal');
+  const terminalContainer = document.getElementById('terminalContainer');
+  const logSearchInput = document.getElementById('logSearchInput');
+  const logLevelFilter = document.getElementById('logLevelFilter');
+  const logAutoScroll = document.getElementById('logAutoScroll');
+  const btnClearLogsView = document.getElementById('btnClearLogsView');
+  const btnCopyLogs = document.getElementById('btnCopyLogs');
+
+  if (!btnLogs || !logsModal) return;
+
+  btnLogs.addEventListener('click', () => {
+    logsModal.classList.add('active');
+    logsModal.classList.add('open');
+    connectLogStream();
+  });
+
+  if (btnCloseLogsModal) {
+    btnCloseLogsModal.addEventListener('click', () => {
+      logsModal.classList.remove('active');
+      logsModal.classList.remove('open');
+    });
+  }
+
+  logsModal.addEventListener('click', (e) => {
+    if (e.target === logsModal) {
+      logsModal.classList.remove('active');
+      logsModal.classList.remove('open');
+    }
+  });
+
+  if (logSearchInput) logSearchInput.addEventListener('input', renderLogs);
+  if (logLevelFilter) logLevelFilter.addEventListener('change', renderLogs);
+
+  if (btnClearLogsView) {
+    btnClearLogsView.addEventListener('click', () => {
+      allLogEntries = [];
+      renderLogs();
+    });
+  }
+
+  if (btnCopyLogs) {
+    btnCopyLogs.addEventListener('click', () => {
+      const text = allLogEntries.map(e => e.line || `${e.timestamp} [${e.level}] [${e.moduleName}] ${e.message}`).join('');
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Logs copied to clipboard!');
+      }).catch(err => {
+        showToast('Failed to copy: ' + err.message);
+      });
+    });
+  }
+}
+
+function connectLogStream() {
+  if (logEventSource) return;
+
+  fetch('/api/logs/recent?limit=200')
+    .then(r => r.json())
+    .then(data => {
+      if (data && Array.isArray(data.logs)) {
+        allLogEntries = data.logs;
+        renderLogs();
+      }
+    })
+    .catch(() => {});
+
+  logEventSource = new EventSource('/api/logs/stream');
+  
+  logEventSource.onmessage = (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      if (payload.type === 'INIT' && Array.isArray(payload.logs)) {
+        allLogEntries = payload.logs;
+        renderLogs();
+      } else if (payload.type === 'LOG' && payload.entry) {
+        allLogEntries.push(payload.entry);
+        if (allLogEntries.length > 1000) allLogEntries.shift();
+        appendSingleLogLine(payload.entry);
+      }
+    } catch (err) {}
+  };
+
+  logEventSource.onerror = () => {
+    if (logEventSource) {
+      logEventSource.close();
+      logEventSource = null;
+    }
+    setTimeout(() => {
+      const logsModal = document.getElementById('logsModal');
+      if (logsModal && (logsModal.classList.contains('active') || logsModal.classList.contains('open'))) {
+        connectLogStream();
+      }
+    }, 3000);
+  };
+}
+
+function renderLogs() {
+  const terminalContainer = document.getElementById('terminalContainer');
+  const logSearchInput = document.getElementById('logSearchInput');
+  const logLevelFilter = document.getElementById('logLevelFilter');
+  const logAutoScroll = document.getElementById('logAutoScroll');
+
+  if (!terminalContainer) return;
+
+  const searchQuery = (logSearchInput ? logSearchInput.value : '').toLowerCase().trim();
+  const levelFilter = logLevelFilter ? logLevelFilter.value : 'ALL';
+
+  const filtered = allLogEntries.filter(entry => {
+    if (levelFilter !== 'ALL' && entry.level !== levelFilter) return false;
+    if (searchQuery) {
+      const fullStr = `${entry.timestamp} ${entry.level} ${entry.moduleName} ${entry.message} ${JSON.stringify(entry.meta || '')}`.toLowerCase();
+      if (!fullStr.includes(searchQuery)) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    terminalContainer.innerHTML = '<div style="color: #6b7280; font-style: italic;">No logs match current filter.</div>';
+    return;
+  }
+
+  terminalContainer.innerHTML = filtered.map(formatLogEntryToHtml).join('');
+
+  if (logAutoScroll && logAutoScroll.checked) {
+    terminalContainer.scrollTop = terminalContainer.scrollHeight;
+  }
+}
+
+function appendSingleLogLine(entry) {
+  const terminalContainer = document.getElementById('terminalContainer');
+  const logSearchInput = document.getElementById('logSearchInput');
+  const logLevelFilter = document.getElementById('logLevelFilter');
+  const logAutoScroll = document.getElementById('logAutoScroll');
+
+  if (!terminalContainer) return;
+
+  const searchQuery = (logSearchInput ? logSearchInput.value : '').toLowerCase().trim();
+  const levelFilter = logLevelFilter ? logLevelFilter.value : 'ALL';
+
+  if (levelFilter !== 'ALL' && entry.level !== levelFilter) return;
+  if (searchQuery) {
+    const fullStr = `${entry.timestamp} ${entry.level} ${entry.moduleName} ${entry.message} ${JSON.stringify(entry.meta || '')}`.toLowerCase();
+    if (!fullStr.includes(searchQuery)) return;
+  }
+
+  const div = document.createElement('div');
+  div.innerHTML = formatLogEntryToHtml(entry);
+  terminalContainer.appendChild(div.firstElementChild || div);
+
+  if (logAutoScroll && logAutoScroll.checked) {
+    terminalContainer.scrollTop = terminalContainer.scrollHeight;
+  }
+}
+
+function formatLogEntryToHtml(entry) {
+  let color = '#94a3b8';
+  let badgeBg = '#334155';
+
+  if (entry.level === 'INFO') {
+    color = '#4ade80';
+    badgeBg = '#064e3b';
+  } else if (entry.level === 'WARN') {
+    color = '#fbbf24';
+    badgeBg = '#78350f';
+  } else if (entry.level === 'ERROR') {
+    color = '#f87171';
+    badgeBg = '#7f1d1d';
+  } else if (entry.level === 'DEBUG') {
+    color = '#38bdf8';
+    badgeBg = '#0c4a6e';
+  }
+
+  const metaHtml = entry.meta !== undefined ? `<span style="color: #94a3b8; font-size: 0.8em; margin-left: 0.5rem;">${escapeHtml(typeof entry.meta === 'object' ? JSON.stringify(entry.meta) : String(entry.meta))}</span>` : '';
+  const timeShort = (entry.timestamp || '').split('T')[1] ? entry.timestamp.split('T')[1].replace('Z', '') : entry.timestamp;
+
+  return `<div style="margin-bottom: 3px; font-family: monospace;">
+    <span style="color: #64748b;">[${escapeHtml(timeShort)}]</span>
+    <span style="background: ${badgeBg}; color: ${color}; padding: 1px 5px; border-radius: 3px; font-weight: bold; font-size: 0.75rem;">${escapeHtml(entry.level)}</span>
+    <span style="color: #c084fc;">[${escapeHtml(entry.moduleName)}]</span>
+    <span style="color: #f1f5f9;">${escapeHtml(entry.message)}</span>${metaHtml}
+  </div>`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setupTerminalLogs();
+});

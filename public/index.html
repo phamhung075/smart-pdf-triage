@@ -28,6 +28,7 @@
         <button id="btnClear" class="btn-secondary" style="color: #ef4444; border-color: rgba(239,68,68,0.3);" title="Clear database registry and return archived files to __raws">🗑️ Clear Registry</button>
         <button id="btnOpenRaws" class="btn-secondary" title="Open the __raws incoming folder">📥 Open __raws</button>
         <button id="btnOpenArchive" class="btn-secondary" title="Open the __archive folder">📂 Open __archive</button>
+        <button id="btnLogs" class="btn-secondary" title="View real-time backend terminal logs">📋 Terminal Logs</button>
         <button id="btnSettings" class="btn-secondary">⚙️ System Config</button>
       </div>
     </header>
@@ -304,6 +305,43 @@
     </div>
   </div>
 
-  <script src="app.js?v=9"></script>
+  <!-- Terminal Logs Modal -->
+  <div id="logsModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 1000px; width: 95vw; height: 85vh; display: flex; flex-direction: column; background: #0b0f19; border: 1px solid #1e293b; padding: 1.5rem; border-radius: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #1e293b; padding-bottom: 0.8rem;">
+        <h3 style="margin: 0; display: flex; align-items: center; gap: 0.5rem; color: #38bdf8; font-family: monospace;">
+          <span>🖥️</span> Live Backend Terminal Logs
+        </h3>
+        <button class="modal-close" id="btnCloseLogsModal">&times;</button>
+      </div>
+
+      <!-- Log Toolbar Controls -->
+      <div style="display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;">
+        <input type="text" id="logSearchInput" placeholder="🔍 Search logs..." style="flex: 1; min-width: 200px; padding: 0.45rem 0.8rem; border-radius: 6px; background: #1e293b; color: #f8fafc; border: 1px solid #334155; font-size: 0.85rem; font-family: monospace;" />
+        
+        <select id="logLevelFilter" style="padding: 0.45rem 0.8rem; border-radius: 6px; background: #1e293b; color: #f8fafc; border: 1px solid #334155; font-size: 0.85rem; font-family: monospace;">
+          <option value="ALL">ALL LEVELS</option>
+          <option value="INFO">INFO ONLY</option>
+          <option value="WARN">WARN ONLY</option>
+          <option value="ERROR">ERROR ONLY</option>
+          <option value="DEBUG">DEBUG ONLY</option>
+        </select>
+
+        <label style="display: flex; align-items: center; gap: 0.4rem; color: #94a3b8; font-size: 0.85rem; font-family: monospace; cursor: pointer;">
+          <input type="checkbox" id="logAutoScroll" checked /> Auto-scroll
+        </label>
+
+        <button id="btnClearLogsView" class="btn-secondary" style="padding: 0.45rem 0.8rem; font-size: 0.85rem;" title="Clear current log view">🗑️ Clear View</button>
+        <button id="btnCopyLogs" class="btn-secondary" style="padding: 0.45rem 0.8rem; font-size: 0.85rem;" title="Copy all visible logs to clipboard">📋 Copy Logs</button>
+      </div>
+
+      <!-- Terminal Output Container -->
+      <div id="terminalContainer" style="flex: 1; background: #030712; color: #f3f4f6; font-family: 'Cascadia Code', 'Fira Code', Consolas, Monaco, monospace; font-size: 0.83rem; line-height: 1.5; padding: 1rem; border-radius: 8px; border: 1px solid #1f2937; overflow-y: auto; white-space: pre-wrap; word-break: break-all;">
+        <div style="color: #6b7280; font-style: italic;">Connecting to live log stream...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=10"></script>
 </body>
 </html>

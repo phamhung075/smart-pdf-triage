@@ -333,6 +333,14 @@
             "dgfip"
           ],
           "subcategories": []
+        },
+        {
+          "id": "info_retraite",
+          "name": "Info Retraite",
+          "aliases": [
+            "info_retraite"
+          ],
+          "subcategories": []
         }
       ]
     },
@@ -383,6 +391,14 @@
           "name": "Gps",
           "aliases": [
             "gps"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "biogroup",
+          "name": "Biogroup",
+          "aliases": [
+            "biogroup"
           ],
           "subcategories": []
         }
@@ -790,6 +806,14 @@
           "name": "Pole Emploi",
           "aliases": [
             "pole_emploi"
+          ],
+          "subcategories": []
+        },
+        {
+          "id": "urssaf",
+          "name": "Urssaf",
+          "aliases": [
+            "urssaf"
           ],
           "subcategories": []
         }
