@@ -35,6 +35,9 @@ function startOllamaIfNeeded() {
           stdio: 'ignore',
           windowsHide: true
         });
+        ollamaProcess.on('error', (err) => {
+          console.warn('⚠️ Ollama auto-spawn error (Ollama might not be in PATH):', err.message);
+        });
         ollamaProcess.unref();
       } catch (err) {
         console.warn('Failed to auto-spawn ollama serve:', err.message);
@@ -45,29 +48,38 @@ function startOllamaIfNeeded() {
   });
 }
 
-function startExpressServer() {
+async function startExpressServer() {
   console.log('⚡ Auto-starting Express Web Server...');
   const appRoot = path.resolve(__dirname, '..');
   
-  // Use tsx to launch Express server in development mode
-  serverProcess = spawn('npx', ['tsx', 'src/index.ts'], {
-    cwd: appRoot,
-    shell: true,
-    stdio: 'pipe',
-    env: { ...process.env, PORT: String(PORT) }
-  });
+  try {
+    const serverEntry = path.join(appRoot, 'dist', 'index.js');
+    await import(`file://${serverEntry.replace(/\\/g, '/')}`);
+    console.log('✅ Express Web Server running in Electron main process.');
+  } catch (err) {
+    console.warn('Could not dynamically import dist/index.js, spawning node process fallback:', err.message);
+    const nodeExecutable = process.execPath;
+    const tsxCli = path.join(appRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
+    const tsEntry = path.join(appRoot, 'src', 'index.ts');
 
-  serverProcess.stdout?.on('data', (data) => {
-    console.log(`[SERVER] ${data.toString().trim()}`);
-  });
+    serverProcess = spawn(nodeExecutable, [tsxCli, tsEntry], {
+      cwd: appRoot,
+      stdio: 'pipe',
+      env: { ...process.env, PORT: String(PORT), ELECTRON_RUN_AS_NODE: '1' }
+    });
 
-  serverProcess.stderr?.on('data', (data) => {
-    console.error(`[SERVER ERR] ${data.toString().trim()}`);
-  });
+    serverProcess.on('error', (spawnErr) => {
+      console.error('Server process spawn error:', spawnErr.message);
+    });
 
-  serverProcess.on('exit', (code) => {
-    console.log(`Express server process exited with code ${code}`);
-  });
+    serverProcess.stdout?.on('data', (data) => {
+      console.log(`[SERVER] ${data.toString().trim()}`);
+    });
+
+    serverProcess.stderr?.on('data', (data) => {
+      console.error(`[SERVER ERR] ${data.toString().trim()}`);
+    });
+  }
 }
 
 function openDashboardInBrowser() {
