@@ -208,12 +208,12 @@ h1 {
   background: rgba(255, 255, 255, 0.15);
 }
 
-/* Controls Bar */
-.controls-bar {
+/* Controls & Filter Bar */
+.controls-bar, .filter-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2.2rem;
   align-items: center;
 }
 
