@@ -98,7 +98,11 @@ function triggerManualScan() {
 }
 
 function setupSystemTray() {
-  let img = nativeImage.createFromDataURL(TRAY_ICON_BASE64);
+  const iconPath = path.join(__dirname, 'icon.png');
+  let img = fs.existsSync(iconPath) 
+    ? nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 })
+    : nativeImage.createFromDataURL(TRAY_ICON_BASE64);
+
   tray = new Tray(img);
 
   const contextMenu = Menu.buildFromTemplate([
