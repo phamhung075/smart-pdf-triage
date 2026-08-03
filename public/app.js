@@ -84,27 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
   addEv('btnCancelEdit', 'click', closeModal);
   addEv('editForm', 'submit', handleSaveEdit);
 
-  // Filter Listeners
-  addEv('filterCategory', 'change', (e) => {
-    activeCategory = e.target.value;
-    activeSubcategory = '';
-    updateFilterSubcategoriesDropdown();
-    loadCategories();
-    loadDocuments();
-  });
-  addEv('filterSubcategory', 'change', (e) => {
-    activeSubcategory = e.target.value;
-    loadDocuments();
-  });
-  addEv('btnResetFilters', 'click', () => {
-    activeCategory = '';
-    activeSubcategory = '';
-    const searchEl = document.getElementById('searchInput');
-    if (searchEl) searchEl.value = '';
-    loadCategories();
-    loadDocuments();
-  });
-
   // Settings Modal Listeners
   addEv('btnSettings', 'click', openSettingsModal);
   addEv('btnCloseSettings', 'click', closeSettingsModal);
@@ -121,8 +100,6 @@ function addEv(id, event, handler) {
   const el = document.getElementById(id);
   if (el) {
     el.addEventListener(event, handler);
-  } else {
-    console.warn(`Element with ID '${id}' not found for event binding '${event}'.`);
   }
 }
 
