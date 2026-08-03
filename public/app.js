@@ -632,10 +632,10 @@ function renderDocsGrid(docs) {
     const contentHeader = doc.markdown_content ? '📝 Markdown:' : '📜 PDF Snippet:';
 
     card.innerHTML = `
-      <div>
+      <div style="cursor: pointer;" onclick="openGrandViewerModal(${doc.id}, event)">
         <div class="card-header">
           <div class="card-title-row">
-            <h3 class="card-title" title="${escapeHtml(doc.title)}">${escapeHtml(doc.title)}</h3>
+            <h3 class="card-title" title="Click to view Grand Format">${escapeHtml(doc.title)}</h3>
           </div>
           <div class="badge-row">
             <span class="badge">${escapeHtml(catText)}</span>
@@ -656,9 +656,10 @@ function renderDocsGrid(docs) {
         <div class="tags-row">${tagsHtml}</div>
       </div>
       <div class="card-actions">
-        <button class="btn-secondary" onclick="openFileLocation('${escapeJsString(targetPath)}')">📂 Location</button>
-        <button class="btn-secondary" style="color: #a7f3d0;" onclick="openRelocalizeModal(${doc.id})" title="Relocalize & Correct Category/Subcategory">📍 Move</button>
-        <button class="btn-secondary" onclick="openEditModal(${doc.id})">✏️ Edit</button>
+        <button class="btn-secondary" style="color: #38bdf8;" onclick="event.stopPropagation(); openGrandViewerModal(${doc.id}, event);" title="Open Grand Format Reader">📖 View</button>
+        <button class="btn-secondary" onclick="event.stopPropagation(); openFileLocation('${escapeJsString(targetPath)}');">📂 Folder</button>
+        <button class="btn-secondary" style="color: #a7f3d0;" onclick="event.stopPropagation(); openRelocalizeModal(${doc.id});" title="Relocalize & Correct Category/Subcategory">📍 Move</button>
+        <button class="btn-secondary" onclick="event.stopPropagation(); openEditModal(${doc.id});">✏️ Edit</button>
       </div>
     `;
 
@@ -1579,6 +1580,149 @@ function formatLogEntryToHtml(entry) {
   </div>`;
 }
 
+let currentGrandViewerDoc = null;
+
+async function openGrandViewerModal(docId, event) {
+  if (event) {
+    try { event.stopPropagation(); } catch {}
+  }
+  const modal = document.getElementById('grandViewerModal');
+  if (!modal) return;
+
+  try {
+    const res = await fetch(`/api/documents/${docId}`);
+    if (!res.ok) {
+      Toast.error('Could not load document for Grand Viewer');
+      return;
+    }
+    const doc = await res.json();
+    currentGrandViewerDoc = doc;
+
+    const titleEl = document.getElementById('grandViewerTitle');
+    if (titleEl) titleEl.textContent = `📖 ${doc.title || 'Untitled Document'}`;
+    
+    const catBadge = document.getElementById('grandViewerCategoryBadge');
+    if (catBadge) catBadge.textContent = (doc.category || 'OTHER').toUpperCase();
+
+    const subBadge = document.getElementById('grandViewerSubcategoryBadge');
+    if (subBadge) {
+      if (doc.subcategory && doc.subcategory !== 'general') {
+        subBadge.textContent = doc.subcategory.toUpperCase().replace(/[\/\\]+/g, ' / ');
+        subBadge.style.display = 'inline-block';
+      } else {
+        subBadge.style.display = 'none';
+      }
+    }
+
+    const dateEl = document.getElementById('grandViewerMetaDate');
+    if (dateEl) dateEl.textContent = `📅 Date: ${doc.date || 'N/A'}`;
+
+    const regEl = document.getElementById('grandViewerMetaRegistre');
+    if (regEl) regEl.textContent = `🏷️ Ref: ${doc.registre || 'No Ref'}`;
+
+    const sumEl = document.getElementById('grandViewerSummary');
+    if (sumEl) sumEl.textContent = doc.summary || 'No summary available.';
+
+    const origEl = document.getElementById('grandViewerOrigName');
+    if (origEl) origEl.textContent = doc.original_filename || '-';
+    
+    const statusEl = document.getElementById('grandViewerStatus');
+    if (statusEl) statusEl.textContent = (doc.status || 'MOVED').toUpperCase();
+
+    const pathEl = document.getElementById('grandViewerPath');
+    const targetPath = doc.new_path || doc.original_path || '-';
+    if (pathEl) pathEl.textContent = targetPath;
+
+    const tagsEl = document.getElementById('grandViewerTags');
+    if (tagsEl) {
+      const tags = (doc.tags || []);
+      tagsEl.innerHTML = tags.length > 0 
+        ? tags.map(t => `<span class="tag">#${escapeHtml(t)}</span>`).join(' ') 
+        : '<span style="color: #64748b;">No tags</span>';
+    }
+
+    const contentText = (doc.markdown_content || doc.raw_text || '').trim();
+    const contentLabel = document.getElementById('grandViewerContentLabel');
+    if (contentLabel) {
+      contentLabel.textContent = doc.markdown_content ? '📝 Full Document Markdown (.md)' : '📜 Full PDF Extracted Text';
+    }
+
+    const textEl = document.getElementById('grandViewerTextContent');
+    if (textEl) {
+      textEl.textContent = contentText || '(No text content available)';
+    }
+
+    const charCountEl = document.getElementById('grandViewerCharCount');
+    if (charCountEl) {
+      charCountEl.textContent = `${contentText.length.toLocaleString()} characters`;
+    }
+
+    const btnLoc = document.getElementById('btnGrandOpenLocation');
+    if (btnLoc) btnLoc.onclick = () => openFileLocation(targetPath);
+
+    const btnRel = document.getElementById('btnGrandRelocalize');
+    if (btnRel) {
+      btnRel.onclick = () => {
+        closeGrandViewerModal();
+        openRelocalizeModal(doc.id);
+      };
+    }
+
+    const btnEdt = document.getElementById('btnGrandEdit');
+    if (btnEdt) {
+      btnEdt.onclick = () => {
+        closeGrandViewerModal();
+        openEditModal(doc.id);
+      };
+    }
+
+    const btnCpy = document.getElementById('btnGrandCopyText');
+    if (btnCpy) {
+      btnCpy.onclick = () => {
+        navigator.clipboard.writeText(contentText).then(() => {
+          Toast.success('📋 Full document text copied to clipboard!');
+        }).catch(() => {
+          Toast.error('Failed to copy text');
+        });
+      };
+    }
+
+    modal.classList.add('open');
+    modal.classList.add('active');
+  } catch (err) {
+    Toast.error('Failed to open Grand Viewer: ' + err.message);
+  }
+}
+
+function closeGrandViewerModal() {
+  const modal = document.getElementById('grandViewerModal');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('active');
+  }
+}
+
+window.openGrandViewerModal = openGrandViewerModal;
+window.closeGrandViewerModal = closeGrandViewerModal;
+
 document.addEventListener('DOMContentLoaded', () => {
   setupTerminalLogs();
+
+  const btnCloseGrand = document.getElementById('btnCloseGrandViewer');
+  if (btnCloseGrand) {
+    btnCloseGrand.addEventListener('click', closeGrandViewerModal);
+  }
+
+  const grandModal = document.getElementById('grandViewerModal');
+  if (grandModal) {
+    grandModal.addEventListener('click', (e) => {
+      if (e.target === grandModal) closeGrandViewerModal();
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeGrandViewerModal();
+    }
+  });
 });
