@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import { CONFIG } from '../infrastructure/settings.js';
-import { moveDuplicateFileToDuplicatesFolder } from './triage-scan.js';
+import { moveDuplicateFileToDuplicatesFolder, cleanEmptyDirectories } from './triage-scan.js';
 
 describe('moveDuplicateFileToDuplicatesFolder', () => {
   const testInputDir = path.join(CONFIG.INPUT_DIR, 'test_tmp_scan');
@@ -53,5 +53,41 @@ describe('moveDuplicateFileToDuplicatesFolder', () => {
     // Clean up
     if (fs.existsSync(existingInDup)) fs.unlinkSync(existingInDup);
     if (fs.existsSync(resultPath)) fs.unlinkSync(resultPath);
+  });
+});
+
+describe('cleanEmptyDirectories', () => {
+  const baseDir = path.join(CONFIG.INPUT_DIR, 'test_clean_dir');
+
+  beforeEach(() => {
+    if (fs.existsSync(baseDir)) {
+      fs.rmSync(baseDir, { recursive: true, force: true });
+    }
+    fs.mkdirSync(baseDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    if (fs.existsSync(baseDir)) {
+      fs.rmSync(baseDir, { recursive: true, force: true });
+    }
+  });
+
+  it('deletes nested empty subdirectories but keeps non-empty subdirectories and duplicates_files', () => {
+    const emptySub1 = path.join(baseDir, 'sub1', 'nested_empty');
+    fs.mkdirSync(emptySub1, { recursive: true });
+
+    const nonEmptySub = path.join(baseDir, 'sub2');
+    fs.mkdirSync(nonEmptySub, { recursive: true });
+    fs.writeFileSync(path.join(nonEmptySub, 'keep.txt'), 'hello');
+
+    const dupSub = path.join(baseDir, 'duplicates_files');
+    fs.mkdirSync(dupSub, { recursive: true });
+
+    cleanEmptyDirectories(baseDir, baseDir);
+
+    expect(fs.existsSync(emptySub1)).toBe(false);
+    expect(fs.existsSync(path.join(baseDir, 'sub1'))).toBe(false);
+    expect(fs.existsSync(nonEmptySub)).toBe(true);
+    expect(fs.existsSync(dupSub)).toBe(true);
   });
 });

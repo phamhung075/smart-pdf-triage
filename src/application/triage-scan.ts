@@ -271,6 +271,7 @@ export async function runTriageScan(onProgress?: (event: TriageProgressEvent) =>
     }
   }
 
+  cleanEmptyDirectories(CONFIG.INPUT_DIR, CONFIG.INPUT_DIR);
   await syncJSONRegistry();
 
   onProgress?.({
@@ -319,4 +320,32 @@ export function moveDuplicateFileToDuplicatesFolder(originalPath: string): strin
   }
 
   return targetPath;
+}
+
+export function cleanEmptyDirectories(dir: string, baseInputDir: string): void {
+  if (!fs.existsSync(dir)) return;
+
+  const items = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const item of items) {
+    if (item.isDirectory()) {
+      const fullPath = path.join(dir, item.name);
+      
+      if (path.resolve(fullPath) === path.resolve(baseInputDir) || item.name === 'duplicates_files' || item.name === 'duplicates') {
+        continue;
+      }
+
+      cleanEmptyDirectories(fullPath, baseInputDir);
+
+      const remainingItems = fs.readdirSync(fullPath);
+      if (remainingItems.length === 0) {
+        try {
+          fs.rmdirSync(fullPath);
+          logger.info('TRIAGE', `Cleaned up empty directory in __raws: ${fullPath}`);
+        } catch (err: any) {
+          logger.warn('TRIAGE', `Failed to remove empty directory ${fullPath}: ${err.message}`);
+        }
+      }
+    }
+  }
 }
