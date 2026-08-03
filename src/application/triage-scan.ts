@@ -130,7 +130,14 @@ export async function runTriageScan(onProgress?: (event: TriageProgressEvent) =>
 
       const existing = await getDocumentByChecksum(checksum);
       if (existing) {
-        logger.info('TRIAGE', `Skipping duplicate file '${file}' (Checksum in DB, ID: ${existing.id})`);
+        let movedDupPath = originalPath;
+        try {
+          movedDupPath = moveDuplicateFileToDuplicatesFolder(originalPath);
+          logger.info('TRIAGE', `Moved duplicate file '${file}' to __raws/duplicates_files (Checksum in DB, ID: ${existing.id})`);
+        } catch (moveErr: any) {
+          logger.warn('TRIAGE', `Skipping duplicate file '${file}' (Failed to move to duplicates_files: ${moveErr.message})`);
+        }
+
         skippedCount++;
         items.push({
           filename: file,
@@ -138,7 +145,7 @@ export async function runTriageScan(onProgress?: (event: TriageProgressEvent) =>
           title: existing.title,
           category: existing.category,
           subcategory: existing.subcategory || 'general',
-          newPath: existing.new_path,
+          newPath: movedDupPath,
           status: 'SKIPPED_DUPLICATE'
         });
 
@@ -146,12 +153,12 @@ export async function runTriageScan(onProgress?: (event: TriageProgressEvent) =>
           type: 'FILE_COMPLETED',
           filename: file,
           stage: 'SKIPPED_DUPLICATE',
-          message: 'Duplicate file (Already in database)',
+          message: 'Moved duplicate file to __raws/duplicates_files (Already in database)',
           docId: existing.id,
           title: existing.title,
           category: existing.category,
           subcategory: existing.subcategory || 'general',
-          newPath: existing.new_path
+          newPath: movedDupPath
         });
         await new Promise(resolve => setTimeout(resolve, 50));
         continue;
@@ -282,4 +289,34 @@ export async function runTriageScan(onProgress?: (event: TriageProgressEvent) =>
   } finally {
     release();
   }
+}
+
+export function moveDuplicateFileToDuplicatesFolder(originalPath: string): string {
+  const file = path.basename(originalPath);
+  const dupDir = path.join(CONFIG.INPUT_DIR, 'duplicates_files');
+  if (!fs.existsSync(dupDir)) {
+    fs.mkdirSync(dupDir, { recursive: true });
+  }
+
+  let targetPath = path.join(dupDir, file);
+  if (fs.existsSync(targetPath) && targetPath !== originalPath) {
+    const ext = path.extname(file);
+    const base = path.basename(file, ext);
+    let counter = 1;
+    while (fs.existsSync(targetPath)) {
+      targetPath = path.join(dupDir, `${base}_dup${counter}${ext}`);
+      counter++;
+    }
+  }
+
+  if (originalPath !== targetPath) {
+    try {
+      fs.renameSync(originalPath, targetPath);
+    } catch (err: any) {
+      fs.copyFileSync(originalPath, targetPath);
+      fs.unlinkSync(originalPath);
+    }
+  }
+
+  return targetPath;
 }

@@ -93,6 +93,7 @@ export function updateConfig(newSettings: {
 export function ensureDirectoriesExist(): void {
   const dirs = [
     CONFIG.INPUT_DIR,
+    path.join(CONFIG.INPUT_DIR, 'duplicates_files'),
     CONFIG.OUTPUT_ROOT_DIR,
     path.dirname(CONFIG.JSON_REGISTRY_PATH),
     path.dirname(CONFIG.DB_PATH)

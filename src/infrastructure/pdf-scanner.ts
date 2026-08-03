@@ -16,6 +16,9 @@ export function getPDFsRecursively(dir: string, ignoreDir?: string): string[] {
     }
 
     if (item.isDirectory()) {
+      if (item.name === 'duplicates_files' || item.name === 'duplicates') {
+        continue;
+      }
       results = results.concat(getPDFsRecursively(fullPath, ignoreDir));
     } else if (item.isFile() && item.name.toLowerCase().endsWith('.pdf')) {
       results.push(fullPath);
