@@ -598,7 +598,7 @@ function renderDocsGrid(docs) {
     const card = document.createElement('div');
     card.className = 'doc-card';
 
-    const tagsHtml = (doc.tags || []).map(t => `<span class="tag">#${t}</span>`).join(' ');
+    const tagsHtml = (doc.tags || []).map(t => `<span class="tag">#${escapeHtml(t)}</span>`).join(' ');
     const catText = (doc.category || 'OTHER').toUpperCase();
     const subText = doc.subcategory && doc.subcategory !== 'general' 
       ? doc.subcategory.toUpperCase().replace(/[\/\\]+/g, ' / ')
@@ -609,7 +609,7 @@ function renderDocsGrid(docs) {
     const contentHeader = doc.markdown_content ? '📝 Markdown:' : '📜 PDF Snippet:';
 
     card.innerHTML = `
-      <div style="cursor: pointer;" onclick="openGrandViewerModal(${doc.id}, event)">
+      <div class="card-clickable-body" style="cursor: pointer;">
         <div class="card-header">
           <div class="card-title-row">
             <h3 class="card-title" title="Click to view Grand Format">${escapeHtml(doc.title)}</h3>
@@ -633,12 +633,51 @@ function renderDocsGrid(docs) {
         <div class="tags-row">${tagsHtml}</div>
       </div>
       <div class="card-actions">
-        <button class="btn-secondary" style="color: #38bdf8;" onclick="event.stopPropagation(); openGrandViewerModal(${doc.id}, event);" title="Open Grand Format Reader">📖 View</button>
-        <button class="btn-secondary" onclick="event.stopPropagation(); openFileLocation('${escapeJsString(targetPath)}');">📂 Folder</button>
-        <button class="btn-secondary" style="color: #a7f3d0;" onclick="event.stopPropagation(); openRelocalizeModal(${doc.id});" title="Relocalize & Correct Category/Subcategory">📍 Move</button>
-        <button class="btn-secondary" onclick="event.stopPropagation(); openEditModal(${doc.id});">✏️ Edit</button>
+        <button class="btn-secondary btn-view-doc" style="color: #38bdf8;" title="Open Grand Format Reader">📖 View</button>
+        <button class="btn-secondary btn-folder-doc" title="Open containing folder">📂 Folder</button>
+        <button class="btn-secondary btn-move-doc" style="color: #a7f3d0;" title="Relocalize & Correct Category/Subcategory">📍 Move</button>
+        <button class="btn-secondary btn-edit-doc" title="Edit Metadata">✏️ Edit</button>
       </div>
     `;
+
+    const bodyEl = card.querySelector('.card-clickable-body');
+    if (bodyEl) {
+      bodyEl.addEventListener('click', () => {
+        openGrandViewerModal(doc.id);
+      });
+    }
+
+    const btnView = card.querySelector('.btn-view-doc');
+    if (btnView) {
+      btnView.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openGrandViewerModal(doc.id);
+      });
+    }
+
+    const btnFolder = card.querySelector('.btn-folder-doc');
+    if (btnFolder) {
+      btnFolder.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openFileLocation(targetPath);
+      });
+    }
+
+    const btnMove = card.querySelector('.btn-move-doc');
+    if (btnMove) {
+      btnMove.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openRelocalizeModal(doc.id);
+      });
+    }
+
+    const btnEdit = card.querySelector('.btn-edit-doc');
+    if (btnEdit) {
+      btnEdit.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openEditModal(doc.id);
+      });
+    }
 
     grid.appendChild(card);
   });
