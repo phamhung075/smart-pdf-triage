@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import * as pdfPkg from 'pdf-parse';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { createWorker } from 'tesseract.js';
 import { logger } from './logger.js';
 import { cleanExtractedText } from '../domain/pdf-text.js';
 
@@ -15,7 +17,6 @@ export interface ExtractedPDF {
 async function safePdfParse(buffer: Buffer): Promise<{ text: string; numpages: number; info: any }> {
   const originalWarn = console.warn;
   try {
-    // Intercept and suppress low-level pdfjs TrueType font bytecode warnings (e.g. "Warning: TT: undefined function: 21")
     console.warn = (...args: any[]) => {
       const msg = args.map(a => (typeof a === 'string' ? a : String(a))).join(' ');
       if (msg.includes('Warning: TT:') || msg.includes('TT: undefined function') || msg.includes('TT: invalid function')) {
@@ -24,7 +25,6 @@ async function safePdfParse(buffer: Buffer): Promise<{ text: string; numpages: n
       originalWarn(...args);
     };
 
-    // 1. Try class-based constructor first (PDFParse in ES module mode)
     if ((pdfPkg as any).PDFParse) {
       try {
         const instance = new (pdfPkg as any).PDFParse({ data: buffer });
@@ -41,7 +41,6 @@ async function safePdfParse(buffer: Buffer): Promise<{ text: string; numpages: n
       }
     }
 
-    // 2. Fallback to default function invocation if constructor is function
     const handler = typeof pdfPkg === 'function' ? pdfPkg : ((pdfPkg as any).default || pdfPkg);
     if (typeof handler === 'function') {
       const res = await handler(buffer, { max: 0 });
@@ -58,40 +57,166 @@ async function safePdfParse(buffer: Buffer): Promise<{ text: string; numpages: n
   }
 }
 
+// Fallback 1 (Solution 2): Robust text extraction via pdfjs-dist legacy (recovers text from corrupted XRef tables)
+async function parseWithPdfjs(buffer: Buffer): Promise<string> {
+  try {
+    const loadingTask = (pdfjsLib as any).getDocument({ data: new Uint8Array(buffer), ignoreErrors: true, useSystemFonts: true });
+    const doc = await loadingTask.promise;
+    let fullText = '';
+    const numPages = Math.min(doc.numPages, 10);
+    for (let i = 1; i <= numPages; i++) {
+      const page = await doc.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(' ');
+      fullText += pageText + '\n';
+    }
+    return fullText.trim();
+  } catch (err: any) {
+    logger.debug('PDF_PARSER', `pdfjs-dist fallback text parse failed: ${err.message}`);
+    return '';
+  }
+}
+
+// Convert pdfjs-dist RGBA/RGB image pixel data into a standard 24-bit BMP buffer for Tesseract.js
+function encodeToBMP(dataBuffer: Uint8Array, width: number, height: number, kind: number): Buffer {
+  const isRGBA = kind === 3;
+  const bytesPerPixel = isRGBA ? 4 : 3;
+  const fileHeaderSize = 14;
+  const bihSize = 40;
+  const padding = (4 - ((width * 3) % 4)) % 4;
+  const imageSize = (width * 3 + padding) * height;
+  const fileSize = fileHeaderSize + bihSize + imageSize;
+
+  const buf = Buffer.alloc(fileSize);
+  buf.write('BM', 0);
+  buf.writeUInt32LE(fileSize, 2);
+  buf.writeUInt32LE(fileHeaderSize + bihSize, 10);
+  buf.writeUInt32LE(bihSize, 14);
+  buf.writeInt32LE(width, 18);
+  buf.writeInt32LE(-height, 22); // Top-down
+  buf.writeUInt16LE(1, 26);
+  buf.writeUInt16LE(24, 28); // 24 bits
+  buf.writeUInt32LE(imageSize, 34);
+
+  let offset = fileHeaderSize + bihSize;
+  const rowSize = width * bytesPerPixel;
+  for (let y = 0; y < height; y++) {
+    const rowStart = y * rowSize;
+    for (let x = 0; x < width; x++) {
+      const p = rowStart + x * bytesPerPixel;
+      buf[offset++] = dataBuffer[p + 2]; // B
+      buf[offset++] = dataBuffer[p + 1]; // G
+      buf[offset++] = dataBuffer[p];     // R
+    }
+    for (let p = 0; p < padding; p++) {
+      buf[offset++] = 0;
+    }
+  }
+  return buf;
+}
+
+// Fallback 2 (Solution 1): Offline Tesseract.js OCR for scanned image PDFs
+async function ocrPdfImages(buffer: Buffer, maxPages = 3): Promise<string> {
+  let worker: any = null;
+  try {
+    const loadingTask = (pdfjsLib as any).getDocument({ data: new Uint8Array(buffer), ignoreErrors: true, useSystemFonts: true });
+    const doc = await loadingTask.promise;
+    const ocrTexts: string[] = [];
+
+    const numPages = Math.min(doc.numPages, maxPages);
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      const page = await doc.getPage(pageNum);
+      const ops = await page.getOperatorList();
+
+      for (let i = 0; i < ops.fnArray.length; i++) {
+        if (ops.fnArray[i] === pdfjsLib.OPS.paintImageXObject || ops.fnArray[i] === pdfjsLib.OPS.paintInlineImageXObject) {
+          const imgName = ops.argsArray[i][0];
+          try {
+            const img = page.objs.get(imgName);
+            if (img && img.data && (img.kind === 2 || img.kind === 3) && img.width > 200 && img.height > 200) {
+              const bmpBuf = encodeToBMP(img.data, img.width, img.height, img.kind);
+              if (!worker) {
+                worker = await createWorker(['fra', 'eng']);
+              }
+              const res = await worker.recognize(bmpBuf);
+              if (res && res.data && res.data.text && res.data.text.trim().length > 10) {
+                ocrTexts.push(res.data.text.trim());
+              }
+            }
+          } catch (e: any) {
+            logger.debug('PDF_PARSER', `Image OCR error on page ${pageNum}: ${e.message}`);
+          }
+        }
+      }
+    }
+
+    if (worker) {
+      await worker.terminate();
+    }
+    return ocrTexts.join('\n\n');
+  } catch (err: any) {
+    if (worker) {
+      try { await worker.terminate(); } catch {}
+    }
+    logger.warn('PDF_PARSER', `Tesseract OCR fallback failed: ${err.message}`);
+    return '';
+  }
+}
+
 export async function extractPDFContent(filePath: string): Promise<ExtractedPDF> {
   logger.debug('PDF_PARSER', `Reading file & parsing text content`, { filePath });
   const fileBuffer = fs.readFileSync(filePath);
   const filename = path.basename(filePath);
   
-  // Calculate SHA256 checksum
   const checksum = crypto.createHash('sha256').update(fileBuffer).digest('hex');
 
   let raw_text = '';
   let numpages = 1;
   let info: any = {};
 
+  // Step 1: Fast standard pdf-parse
   try {
     const data = await safePdfParse(fileBuffer);
-    
     numpages = data.numpages || 1;
     info = data.info || {};
     const extracted = data.text || '';
     raw_text = cleanExtractedText(extracted, filename);
+  } catch (err: any) {
+    logger.warn('PDF_PARSER', `pdf-parse failed on ${filename}: ${err.message}`);
+  }
 
-    if (raw_text && info && (info.Title || info.Author || info.Subject)) {
-      const metaArr = [info.Title, info.Author, info.Subject].filter(b => typeof b === 'string' && b.trim().length > 0);
-      if (metaArr.length > 0) {
-        const metaHeader = `[Propriétés Document: ${metaArr.join(' | ')}]`;
-        if (!raw_text.includes(metaHeader)) {
-          raw_text = `${metaHeader}\n\n${raw_text}`;
-        }
+  // Step 2: Solution 2 — Robust pdfjs-dist fallback parser for corrupted XRef tables
+  if (!raw_text || raw_text.length < 10) {
+    const pdfjsText = await parseWithPdfjs(fileBuffer);
+    const cleanedPdfjs = cleanExtractedText(pdfjsText, filename);
+    if (cleanedPdfjs && cleanedPdfjs.length >= 10) {
+      logger.info('PDF_PARSER', `Recovered ${cleanedPdfjs.length} chars using pdfjs-dist fallback parser`, { filename });
+      raw_text = cleanedPdfjs;
+    }
+  }
+
+  // Step 3: Solution 1 — Automatic Tesseract.js OCR for scanned paper/photo PDFs
+  if (!raw_text || raw_text.length < 10) {
+    logger.info('PDF_PARSER', `No digital text layer found for '${filename}'. Running offline Tesseract OCR on scanned images...`);
+    const ocrText = await ocrPdfImages(fileBuffer);
+    const cleanedOcr = cleanExtractedText(ocrText, filename);
+    if (cleanedOcr && cleanedOcr.length >= 10) {
+      logger.info('PDF_PARSER', `Successfully extracted ${cleanedOcr.length} chars via Tesseract OCR!`, { filename });
+      raw_text = `[OCR Extracted Text]\n\n${cleanedOcr}`;
+    }
+  }
+
+  if (raw_text && info && (info.Title || info.Author || info.Subject)) {
+    const metaArr = [info.Title, info.Author, info.Subject].filter(b => typeof b === 'string' && b.trim().length > 0);
+    if (metaArr.length > 0) {
+      const metaHeader = `[Propriétés Document: ${metaArr.join(' | ')}]`;
+      if (!raw_text.includes(metaHeader)) {
+        raw_text = `${metaHeader}\n\n${raw_text}`;
       }
     }
-    logger.info('PDF_PARSER', `Parsed PDF text: ${raw_text.length} chars`, { filename, numpages, checksum: checksum.substring(0, 10) });
-  } catch (err: any) {
-    logger.warn('PDF_PARSER', `Failed to extract text from ${filePath}: ${err.message}`);
-    raw_text = '';
   }
+
+  logger.info('PDF_PARSER', `Parsed PDF text: ${raw_text.length} chars`, { filename, numpages, checksum: checksum.substring(0, 10) });
 
   return {
     checksum,

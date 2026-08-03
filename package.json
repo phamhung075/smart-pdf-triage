@@ -33,8 +33,10 @@
     "express": "^4.21.2",
     "ollama": "^0.5.15",
     "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^5.4.624",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
+    "tesseract.js": "^7.0.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
