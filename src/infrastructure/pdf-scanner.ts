@@ -16,7 +16,7 @@ export function getPDFsRecursively(dir: string, ignoreDir?: string): string[] {
     }
 
     if (item.isDirectory()) {
-      if (item.name === 'duplicates_files' || item.name === 'duplicates') {
+      if (item.name === 'duplicates_files' || item.name === 'duplicates' || item.name === 'blocked_files' || item.name === 'blocked') {
         continue;
       }
       results = results.concat(getPDFsRecursively(fullPath, ignoreDir));

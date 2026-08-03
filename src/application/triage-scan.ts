@@ -108,10 +108,14 @@ export async function runTriageScan(onProgress?: (event: TriageProgressEvent) =>
 
       const cleanText = (raw_text || '').trim();
       if (!cleanText || cleanText.length < 10) {
-        const message = '❌ Blocked: No text extracted from PDF. Kept in __raws.';
-        logger.warn('TRIAGE', `BLOCKED: No text extracted from PDF '${file}'. Kept in __raws.`, { originalPath });
+        let movedPath = originalPath;
+        try {
+          movedPath = moveBlockedFileToBlockedFolder(originalPath);
+        } catch {}
+        const message = '❌ Blocked: No text extracted from PDF. Moved to __raws/blocked_files.';
+        logger.warn('TRIAGE', `BLOCKED: No text extracted from PDF '${file}'. Moved to __raws/blocked_files.`, { originalPath: movedPath });
         await upsertBlockedFile({
-          original_path: originalPath,
+          original_path: movedPath,
           filename: file,
           reason: 'NO_TEXT_EXTRACTED',
           message,
@@ -176,10 +180,14 @@ export async function runTriageScan(onProgress?: (event: TriageProgressEvent) =>
 
       const subcat = (metadata.subcategorie || '').toLowerCase().trim();
       if (!subcat || subcat === 'general' || subcat === 'other' || subcat === 'divers') {
-        const message = `❌ Blocked: Failed to assign specific subcategory to '${file}'. Kept in __raws.`;
-        logger.warn('TRIAGE', `BLOCKED: No specific subcategory detected for '${file}' (subcat='${subcat}'). Kept in __raws.`, { originalPath });
+        let movedPath = originalPath;
+        try {
+          movedPath = moveBlockedFileToBlockedFolder(originalPath);
+        } catch {}
+        const message = `❌ Blocked: Failed to assign specific subcategory to '${file}'. Moved to __raws/blocked_files.`;
+        logger.warn('TRIAGE', `BLOCKED: No specific subcategory detected for '${file}' (subcat='${subcat}'). Moved to __raws/blocked_files.`, { originalPath: movedPath });
         await upsertBlockedFile({
-          original_path: originalPath,
+          original_path: movedPath,
           filename: file,
           reason: 'NO_SUBCATEGORY',
           message,
@@ -325,27 +333,72 @@ export function moveDuplicateFileToDuplicatesFolder(originalPath: string): strin
 export function cleanEmptyDirectories(dir: string, baseInputDir: string): void {
   if (!fs.existsSync(dir)) return;
 
-  const items = fs.readdirSync(dir, { withFileTypes: true });
+  let items: fs.Dirent[] = [];
+  try {
+    items = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
 
   for (const item of items) {
     if (item.isDirectory()) {
       const fullPath = path.join(dir, item.name);
       
-      if (path.resolve(fullPath) === path.resolve(baseInputDir) || item.name === 'duplicates_files' || item.name === 'duplicates') {
+      if (path.resolve(fullPath) === path.resolve(baseInputDir) || 
+          item.name === 'duplicates_files' || item.name === 'duplicates' ||
+          item.name === 'blocked_files' || item.name === 'blocked') {
         continue;
       }
 
       cleanEmptyDirectories(fullPath, baseInputDir);
 
-      const remainingItems = fs.readdirSync(fullPath);
-      if (remainingItems.length === 0) {
+      if (fs.existsSync(fullPath)) {
+        let remainingItems: string[] = [];
         try {
-          fs.rmdirSync(fullPath);
-          logger.info('TRIAGE', `Cleaned up empty directory in __raws: ${fullPath}`);
-        } catch (err: any) {
-          logger.warn('TRIAGE', `Failed to remove empty directory ${fullPath}: ${err.message}`);
+          remainingItems = fs.readdirSync(fullPath).filter(i => i !== 'Thumbs.db' && i !== '.DS_Store' && i !== 'desktop.ini');
+        } catch {
+          continue;
+        }
+
+        if (remainingItems.length === 0) {
+          try {
+            fs.rmSync(fullPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
+            logger.info('TRIAGE', `Cleaned up empty directory in __raws: ${fullPath}`);
+          } catch (err: any) {
+            logger.warn('TRIAGE', `Failed to remove empty directory ${fullPath}: ${err.message}`);
+          }
         }
       }
     }
   }
+}
+
+export function moveBlockedFileToBlockedFolder(originalPath: string): string {
+  const file = path.basename(originalPath);
+  const blockDir = path.join(CONFIG.INPUT_DIR, 'blocked_files');
+  if (!fs.existsSync(blockDir)) {
+    fs.mkdirSync(blockDir, { recursive: true });
+  }
+
+  let targetPath = path.join(blockDir, file);
+  if (fs.existsSync(targetPath) && targetPath !== originalPath) {
+    const ext = path.extname(file);
+    const base = path.basename(file, ext);
+    let counter = 1;
+    while (fs.existsSync(targetPath)) {
+      targetPath = path.join(blockDir, `${base}_blocked${counter}${ext}`);
+      counter++;
+    }
+  }
+
+  if (originalPath !== targetPath) {
+    try {
+      fs.renameSync(originalPath, targetPath);
+    } catch (err: any) {
+      fs.copyFileSync(originalPath, targetPath);
+      fs.unlinkSync(originalPath);
+    }
+  }
+
+  return targetPath;
 }

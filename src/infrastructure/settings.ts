@@ -94,6 +94,7 @@ export function ensureDirectoriesExist(): void {
   const dirs = [
     CONFIG.INPUT_DIR,
     path.join(CONFIG.INPUT_DIR, 'duplicates_files'),
+    path.join(CONFIG.INPUT_DIR, 'blocked_files'),
     CONFIG.OUTPUT_ROOT_DIR,
     path.dirname(CONFIG.JSON_REGISTRY_PATH),
     path.dirname(CONFIG.DB_PATH)

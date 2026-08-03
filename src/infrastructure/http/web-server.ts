@@ -2,11 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { Ollama } from 'ollama';
 import { z } from 'zod';
 import { CONFIG, BASE_DIR, updateConfig } from '../settings.js';
-import { getAllDocuments, getDocumentById, updateDocumentRecord, getDb, getCategorySubcategoryStats } from '../db/database.js';
+import { getAllDocuments, getDocumentById, updateDocumentRecord, getDb, getCategorySubcategoryStats, getBlockedFile } from '../db/database.js';
 import { checkModelCanGenerate } from '../ollama-client.js';
 import { getCategoriesConfig, saveCategoriesConfig, setOnCategoryCreatedCallback } from '../categories-store.js';
 import { syncJSONRegistry } from '../json-registry.js';
@@ -557,11 +557,26 @@ export function createWebServer(): express.Express {
     try {
       const incoming = getPDFsRecursively(CONFIG.INPUT_DIR, CONFIG.OUTPUT_ROOT_DIR);
       if (incoming.length > 0) {
-        isAutoScanning = true;
-        logger.info('AUTO_WATCHER', `Auto-scan triggered: Found ${incoming.length} incoming PDF(s) in __raws`);
-        await runTriageScan((evt) => {
-          broadcastTriageEvent(evt);
-        });
+        const unblocked: string[] = [];
+        for (const p of incoming) {
+          try {
+            const fileStat = fs.statSync(p);
+            const blocked = await getBlockedFile(p);
+            if (!blocked || blocked.mtime_ms !== fileStat.mtimeMs || blocked.size !== fileStat.size) {
+              unblocked.push(p);
+            }
+          } catch {
+            unblocked.push(p);
+          }
+        }
+
+        if (unblocked.length > 0) {
+          isAutoScanning = true;
+          logger.info('AUTO_WATCHER', `Auto-scan triggered: Found ${unblocked.length} incoming PDF(s) in __raws`);
+          await runTriageScan((evt) => {
+            broadcastTriageEvent(evt);
+          });
+        }
       }
     } catch (err: any) {
       logger.error('AUTO_WATCHER', `Error in 10s auto-scan watcher: ${err.message}`);
