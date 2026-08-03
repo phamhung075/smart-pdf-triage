@@ -15,6 +15,17 @@ export async function getDb(): Promise<Database> {
     driver: sqlite3.Database
   });
 
+  try {
+    await dbInstance.exec(`
+      PRAGMA journal_mode = WAL;
+      PRAGMA synchronous = NORMAL;
+      PRAGMA temp_store = MEMORY;
+      PRAGMA busy_timeout = 10000;
+    `);
+  } catch (err: any) {
+    console.warn('SQLite WAL pragma setup notice:', err.message);
+  }
+
   await initSchema(dbInstance);
   return dbInstance;
 }

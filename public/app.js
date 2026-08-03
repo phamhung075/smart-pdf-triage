@@ -1605,16 +1605,25 @@ async function openGrandViewerModal(docId, event) {
   const modal = document.getElementById('grandViewerModal');
   if (!modal) return;
 
+  modal.classList.add('open', 'active');
+  modal.style.display = 'flex';
+
+  const titleEl = document.getElementById('grandViewerTitle');
+  if (titleEl) titleEl.textContent = '⏳ Loading Document...';
+
+  const textEl = document.getElementById('grandViewerTextContent');
+  if (textEl) textEl.textContent = 'Fetching full document text from server...';
+
   try {
     const res = await fetch(`/api/documents/${docId}`);
     if (!res.ok) {
       Toast.error('Could not load document for Grand Viewer');
+      closeGrandViewerModal();
       return;
     }
     const doc = await res.json();
     currentGrandViewerDoc = doc;
 
-    const titleEl = document.getElementById('grandViewerTitle');
     if (titleEl) titleEl.textContent = `📖 ${doc.title || 'Untitled Document'}`;
     
     const catBadge = document.getElementById('grandViewerCategoryBadge');
