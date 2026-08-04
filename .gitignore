@@ -35,6 +35,9 @@ yarn-error.log*
 .server.lock
 .scan.lock
 
+# Tesseract OCR language data (large binaries, runtime-downloaded)
+*.traineddata
+
 # Operating System Files
 .DS_Store
 Thumbs.db
