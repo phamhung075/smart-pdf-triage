@@ -14,7 +14,7 @@ export interface ExtractedPDF {
   info: any;
 }
 
-async function safePdfParse(buffer: Buffer): Promise<{ text: string; numpages: number; info: any }> {
+export async function safePdfParse(buffer: Buffer): Promise<{ text: string; numpages: number; info: any }> {
   const originalWarn = console.warn;
   try {
     console.warn = (...args: any[]) => {
@@ -58,7 +58,7 @@ async function safePdfParse(buffer: Buffer): Promise<{ text: string; numpages: n
 }
 
 // Fallback 1 (Solution 2): Robust text extraction via pdfjs-dist legacy (recovers text from corrupted XRef tables)
-async function parseWithPdfjs(buffer: Buffer): Promise<string> {
+export async function parseWithPdfjs(buffer: Buffer): Promise<string> {
   try {
     const loadingTask = (pdfjsLib as any).getDocument({ data: new Uint8Array(buffer), ignoreErrors: true, useSystemFonts: true });
     const doc = await loadingTask.promise;
@@ -78,7 +78,7 @@ async function parseWithPdfjs(buffer: Buffer): Promise<string> {
 }
 
 // Convert pdfjs-dist RGBA/RGB image pixel data into a standard 24-bit BMP buffer for Tesseract.js
-function encodeToBMP(dataBuffer: Uint8Array, width: number, height: number, kind: number): Buffer {
+export function encodeToBMP(dataBuffer: Uint8Array, width: number, height: number, kind: number): Buffer {
   const isRGBA = kind === 3;
   const bytesPerPixel = isRGBA ? 4 : 3;
   const fileHeaderSize = 14;
@@ -115,8 +115,21 @@ function encodeToBMP(dataBuffer: Uint8Array, width: number, height: number, kind
   return buf;
 }
 
+// pdfjs-dist resolves image XObjects asynchronously; page.objs.get(id) throws if called
+// synchronously before decode finishes. Await the callback form so slower-to-decode
+// images (common in real scanned PDFs) aren't silently skipped.
+function getResolvedPageObject(page: any, objName: string): Promise<any> {
+  return new Promise((resolve) => {
+    if (page.objs.has(objName)) {
+      resolve(page.objs.get(objName));
+      return;
+    }
+    page.objs.get(objName, (data: any) => resolve(data));
+  });
+}
+
 // Fallback 2 (Solution 1): Offline Tesseract.js OCR for scanned image PDFs
-async function ocrPdfImages(buffer: Buffer, maxPages = 3): Promise<string> {
+export async function ocrPdfImages(buffer: Buffer, maxPages = 3): Promise<string> {
   let worker: any = null;
   try {
     const loadingTask = (pdfjsLib as any).getDocument({ data: new Uint8Array(buffer), ignoreErrors: true, useSystemFonts: true });
@@ -132,7 +145,7 @@ async function ocrPdfImages(buffer: Buffer, maxPages = 3): Promise<string> {
         if (ops.fnArray[i] === pdfjsLib.OPS.paintImageXObject || ops.fnArray[i] === pdfjsLib.OPS.paintInlineImageXObject) {
           const imgName = ops.argsArray[i][0];
           try {
-            const img = page.objs.get(imgName);
+            const img = await getResolvedPageObject(page, imgName);
             if (img && img.data && (img.kind === 2 || img.kind === 3) && img.width > 200 && img.height > 200) {
               const bmpBuf = encodeToBMP(img.data, img.width, img.height, img.kind);
               if (!worker) {
