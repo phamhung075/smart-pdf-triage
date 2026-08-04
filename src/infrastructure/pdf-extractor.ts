@@ -149,7 +149,19 @@ export async function ocrPdfImages(buffer: Buffer, maxPages = 3): Promise<string
             if (img && img.data && (img.kind === 2 || img.kind === 3) && img.width > 200 && img.height > 200) {
               const bmpBuf = encodeToBMP(img.data, img.width, img.height, img.kind);
               if (!worker) {
-                worker = await createWorker(['fra', 'eng']);
+                // errorHandler is required, not optional: without it, createWorker.js's
+                // onMessage handler falls back to a bare `throw Error(data)` inside a raw
+                // worker-thread message-event callback whenever a job rejects — outside any
+                // promise chain we await, so Node treats it as an uncaught exception and
+                // kills the whole process. This has been observed for large scanned images:
+                // tesseract.js's Node setImage() BMP workaround spreads the whole image
+                // buffer into a plain object ({...image}), which throws "RangeError: Too
+                // many properties to enumerate" once the image is large enough. With
+                // errorHandler set, that same failure still rejects worker.recognize()
+                // normally, which the try/catch around this call already handles.
+                worker = await createWorker(['fra', 'eng'], undefined, {
+                  errorHandler: (err: any) => logger.warn('PDF_PARSER', `Tesseract worker error: ${err?.message || err}`),
+                });
               }
               const res = await worker.recognize(bmpBuf);
               if (res && res.data && res.data.text && res.data.text.trim().length > 10) {

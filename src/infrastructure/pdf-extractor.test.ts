@@ -47,6 +47,28 @@ async function buildImageOnlyPdf(word: string): Promise<Buffer> {
   return Buffer.from(await pdfDoc.save());
 }
 
+// Large enough that the raw RGB buffer (width*height*3 bytes) trips tesseract.js's Node
+// setImage() workaround (`{...image}` spreads the whole buffer into a plain object, one
+// property per byte) past V8's own limit on object property counts — reproduced directly
+// against the real tesseract.js package via a throwaway script before this fix, with the
+// exact same "RangeError: Too many properties to enumerate" seen in production.
+async function buildOversizedImageOnlyPdf(dimension: number): Promise<Buffer> {
+  const canvas = createCanvas(dimension, dimension);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, dimension, dimension);
+  ctx.fillStyle = '#000000';
+  ctx.font = 'bold 80px sans-serif';
+  ctx.fillText('OVERSIZED SCAN', 40, 200);
+  const pngBytes = canvas.toBuffer('image/png');
+
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([dimension, dimension]);
+  const img = await pdfDoc.embedPng(pngBytes);
+  page.drawImage(img, { x: 0, y: 0, width: dimension, height: dimension });
+  return Buffer.from(await pdfDoc.save());
+}
+
 function writeTempPdf(bytes: Buffer, name: string): string {
   const filePath = path.join(os.tmpdir(), `pdf-extractor-test-${Date.now()}-${name}`);
   fs.writeFileSync(filePath, bytes);
@@ -91,6 +113,22 @@ describe('extractPDFContent — 3-tier fallback pipeline', () => {
       const result = await extractPDFContent(filePath);
       expect(result.raw_text.startsWith('[OCR Extracted Text]')).toBe(true);
       expect(result.raw_text.toUpperCase()).toContain('HELLO');
+    } finally {
+      fs.unlinkSync(filePath);
+    }
+  }, 60_000);
+
+  it('does not crash the process when Tesseract fails on an oversized scanned image (regression: missing errorHandler crashed the whole server)', async () => {
+    const bytes = await buildOversizedImageOnlyPdf(2600);
+    const filePath = writeTempPdf(bytes, 'oversized-scan.pdf');
+    try {
+      // The real bug: without createWorker's errorHandler option, tesseract.js's Node
+      // worker throws inside a raw message-event callback outside any promise chain we
+      // await, which Node treats as an uncaught exception and crashes the whole process —
+      // not just this call. There is no exception for this test to catch; the assertion is
+      // that execution reaches this point at all, having resolved instead of the process dying.
+      const result = await extractPDFContent(filePath);
+      expect(result.raw_text.startsWith('[OCR Extracted Text]')).toBe(false);
     } finally {
       fs.unlinkSync(filePath);
     }
