@@ -9,7 +9,7 @@ let tray = null;
 let serverProcess = null;
 let ollamaProcess = null;
 
-const PORT = 3000;
+const PORT = 3971;
 const SERVER_URL = `http://localhost:${PORT}`;
 const OLLAMA_HOST = 'http://127.0.0.1:11434';
 
@@ -112,7 +112,7 @@ function setupSystemTray() {
     },
     { type: 'separator' },
     {
-      label: '🌐 Open Dashboard (http://localhost:3000)',
+      label: '🌐 Open Dashboard (http://localhost:3971)',
       click: () => openDashboardInBrowser()
     },
     {
