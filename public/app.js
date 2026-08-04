@@ -202,6 +202,18 @@ function setupLiveReload() {
 function setupGlobalTriageSSE() {
   if (!!window.EventSource) {
     const sse = new EventSource('/api/triage/events');
+
+    // A large backlog scan fires one FILE_COMPLETED event per file — without coalescing,
+    // each one rebuilds the entire document grid (grid.innerHTML = '' + recreate every
+    // card), which for a few hundred documents can block the main thread long enough to
+    // trigger a Chrome "'setTimeout' handler took Nms" violation and make the page feel
+    // unresponsive while a backlog is draining. Debounce so a burst of events collapses
+    // into a single refresh shortly after the burst quiets down.
+    const refreshDashboard = debounce(() => {
+      loadCategories();
+      loadDocuments();
+    }, 600);
+
     sse.onmessage = (e) => {
       try {
         const evt = JSON.parse(e.data);
@@ -218,8 +230,7 @@ function setupGlobalTriageSSE() {
             Toast.info(`✨ Triage Scan Completed: Processed ${evt.processedCount} PDF(s).`, 4000);
           }
           // Quiet background live dashboard refresh
-          loadCategories();
-          loadDocuments();
+          refreshDashboard();
         }
       } catch (err) {}
     };
