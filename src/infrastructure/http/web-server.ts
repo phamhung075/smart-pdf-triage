@@ -32,7 +32,14 @@ export function createWebServer(): express.Express {
 
   const publicDir = path.join(BASE_DIR, 'public');
   if (fs.existsSync(publicDir)) {
-    app.use(express.static(publicDir));
+    // This is a local dev tool, not a CDN-scale site — never let the browser cache
+    // app.js/style.css/index.html on disk. The static ?v=18 query param in index.html
+    // relied on someone remembering to bump it on every edit (nobody did, twice, in one
+    // session), so a stale tab could silently keep running pre-fix JS after a server
+    // restart picked up new code. no-store removes the failure mode outright.
+    app.use(express.static(publicDir, {
+      setHeaders: (res) => res.setHeader('Cache-Control', 'no-store'),
+    }));
   }
 
   // Shared guard: prevents manual scan, the 10s auto-watcher, repair, and clear-registry
