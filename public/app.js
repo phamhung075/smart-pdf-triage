@@ -1701,8 +1701,12 @@ async function openGrandViewerModal(docId, event) {
   const modal = document.getElementById('grandViewerModal');
   if (!modal) return;
 
+  // display is controlled purely by the .open/.active CSS classes now (see
+  // style.css) — an inline style.display here used to be redundant while the
+  // old opacity-based show/hide was active, but with display:none/flex as the
+  // actual mechanism, a leftover inline 'flex' would override closeGrandViewerModal()
+  // removing the classes and leave the modal stuck visually open.
   modal.classList.add('open', 'active');
-  modal.style.display = 'flex';
 
   const titleEl = document.getElementById('grandViewerTitle');
   if (titleEl) titleEl.textContent = '⏳ Loading Document...';

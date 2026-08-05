@@ -483,27 +483,27 @@ h1 {
 .modal-backdrop {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  /* Was rgba(0,0,0,0.75) + backdrop-filter: blur(8px). backdrop-filter needs
-     GPU-accelerated compositing that can silently fail on some graphics
-     configurations (VMs, remote sessions, certain drivers) — the whole layer
-     stops painting (fully invisible) while pointer-events keeps working via
-     hit-testing, which doesn't require a successful paint. That produced an
-     invisible-but-still-blocking modal: nothing visible on screen, yet every
-     click underneath was swallowed. A solid (non-backdrop-filter) background
-     composites reliably without depending on that GPU path. */
+  /* Was rgba(0,0,0,0.75) + backdrop-filter: blur(8px), see git history for that
+     removal. This layer also used to fade in via `opacity: 0/1` + `transition:
+     opacity 0.3s ease` — on a full-viewport position:fixed element, animating
+     opacity is a classic trigger for Chrome to promote the element into its own
+     GPU-composited layer. On at least one real machine (confirmed via
+     chrome://gpu logging an "eglCreateContext: Requested version is not
+     supported" driver error), creating that layer for the first time appeared
+     to corrupt the tab's compositor: after opening a modal, NO further repaint
+     occurred anywhere on the page — not even an unrelated
+     document.body.style.backgroundColor change — matching reports of the app
+     going fully unresponsive right after clicking a button that opens a modal.
+     Plain display:none/flex needs no layer promotion and no animation. */
   background: rgba(0, 0, 0, 0.92);
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
 }
 
 .modal-backdrop.open, .modal-backdrop.active {
-  opacity: 1;
-  pointer-events: auto;
+  display: flex;
 }
 
 .modal {
