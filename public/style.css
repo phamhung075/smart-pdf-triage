@@ -39,7 +39,6 @@ header {
   margin-bottom: 2rem;
   padding: 1.5rem 2rem;
   background: var(--panel-bg);
-  backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
   border-radius: 16px;
   box-shadow: var(--glass-glow);
@@ -99,7 +98,6 @@ h1 {
   gap: 0.6rem;
   padding: 1rem 1.4rem;
   background: var(--panel-bg);
-  backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
   border-radius: 14px;
   box-shadow: var(--glass-glow);
@@ -339,7 +337,6 @@ h1 {
 
 .doc-card {
   background: var(--panel-bg);
-  backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   padding: 1rem 1.1rem;
@@ -486,8 +483,15 @@ h1 {
 .modal-backdrop {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
+  /* Was rgba(0,0,0,0.75) + backdrop-filter: blur(8px). backdrop-filter needs
+     GPU-accelerated compositing that can silently fail on some graphics
+     configurations (VMs, remote sessions, certain drivers) — the whole layer
+     stops painting (fully invisible) while pointer-events keeps working via
+     hit-testing, which doesn't require a successful paint. That produced an
+     invisible-but-still-blocking modal: nothing visible on screen, yet every
+     click underneath was swallowed. A solid (non-backdrop-filter) background
+     composites reliably without depending on that GPU path. */
+  background: rgba(0, 0, 0, 0.92);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -669,7 +673,6 @@ h1 {
   padding: 0.9rem 1.2rem;
   border-radius: 12px;
   background: var(--panel-bg);
-  backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(56, 189, 248, 0.15);
   font-size: 0.88rem;
