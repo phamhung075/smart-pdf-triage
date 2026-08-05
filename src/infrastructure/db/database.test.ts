@@ -240,6 +240,17 @@ describe('blocked files CRUD', () => {
     expect(await getBlockedFile(entry.original_path)).toBeUndefined();
     expect(await getBlockedFile('C:/raws/still-there.pdf')).toBeDefined();
   });
+
+  it('getAllBlockedFiles lists every blocked file, newest first', async () => {
+    const { getDb, upsertBlockedFile, getAllBlockedFiles } = await freshDb();
+    await getDb();
+    await upsertBlockedFile(entry);
+    await upsertBlockedFile({ ...entry, original_path: 'C:/raws/second.pdf', filename: 'second.pdf', reason: 'no_text' });
+
+    const all = await getAllBlockedFiles();
+    expect(all).toHaveLength(2);
+    expect(all.map(f => f.filename).sort()).toEqual(['bad.pdf', 'second.pdf']);
+  });
 });
 
 describe('getCategorySubcategoryStats', () => {

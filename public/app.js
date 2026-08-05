@@ -73,6 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   loadCategories();
   loadDocuments();
+  setupBlockedFilesModal();
+  updateBlockedFilesBadge();
 
   addEv('searchInput', 'input', debounce(loadDocuments, 300));
   addEv('btnScan', 'click', handleScan);
@@ -212,6 +214,7 @@ function setupGlobalTriageSSE() {
     const refreshDashboard = debounce(() => {
       loadCategories();
       loadDocuments();
+      updateBlockedFilesBadge();
     }, 600);
 
     sse.onmessage = (e) => {
@@ -1416,6 +1419,88 @@ function escapeHtml(str) {
 function escapeJsString(str) {
   if (!str) return '';
   return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+/* Blocked Files Modal */
+async function updateBlockedFilesBadge() {
+  try {
+    const res = await fetch('/api/blocked-files');
+    if (!res.ok) return;
+    const data = await res.json();
+    const badge = document.getElementById('blockedFilesBadge');
+    if (!badge) return;
+    if (data.total > 0) {
+      badge.textContent = data.total;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  } catch (err) {}
+}
+
+async function openBlockedFilesModal() {
+  const modal = document.getElementById('blockedFilesModal');
+  if (!modal) return;
+  modal.classList.add('open', 'active');
+
+  const listEl = document.getElementById('blockedFilesList');
+  const countEl = document.getElementById('blockedFilesModalCount');
+  if (listEl) listEl.innerHTML = '<div style="color: #6b7280; font-style: italic;">Loading...</div>';
+
+  try {
+    const res = await fetch('/api/blocked-files');
+    if (!res.ok) {
+      Toast.error('Could not load blocked files');
+      return;
+    }
+    const data = await res.json();
+    if (countEl) countEl.textContent = `(${data.total})`;
+    if (!listEl) return;
+
+    if (data.total === 0) {
+      listEl.innerHTML = '<div style="color: #64748b; padding: 2rem; text-align: center;">✅ No blocked files right now.</div>';
+      return;
+    }
+
+    listEl.innerHTML = data.files.map(f => `
+      <div style="background: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 0.8rem 1rem; margin-bottom: 0.6rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+          <strong style="color: #f8fafc; word-break: break-all;">${escapeHtml(f.filename)}</strong>
+          <span style="color: #f87171; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; padding: 0.1rem 0.5rem; font-size: 0.75rem; white-space: nowrap;">${escapeHtml(f.reason)}</span>
+        </div>
+        <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.3rem;">${escapeHtml(f.message)}</div>
+        <div style="color: #64748b; font-size: 0.75rem; margin-top: 0.3rem;">Blocked ${escapeHtml(f.blocked_at || '')}</div>
+      </div>
+    `).join('');
+  } catch (err) {
+    Toast.error('Failed to load blocked files: ' + err.message);
+  }
+}
+
+function closeBlockedFilesModal() {
+  const modal = document.getElementById('blockedFilesModal');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('active');
+  }
+}
+
+function setupBlockedFilesModal() {
+  const btn = document.getElementById('btnBlockedFiles');
+  const modal = document.getElementById('blockedFilesModal');
+  const btnClose = document.getElementById('btnCloseBlockedFilesModal');
+
+  if (!btn || !modal) return;
+
+  btn.addEventListener('click', openBlockedFilesModal);
+
+  if (btnClose) {
+    btnClose.addEventListener('click', closeBlockedFilesModal);
+  }
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeBlockedFilesModal();
+  });
 }
 
 /* Terminal Logs Stream Manager */

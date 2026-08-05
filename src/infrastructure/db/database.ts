@@ -285,6 +285,11 @@ export async function getBlockedFile(originalPath: string): Promise<BlockedFileR
   return db.get<BlockedFileRecord>('SELECT * FROM blocked_files WHERE original_path = ?', [originalPath]);
 }
 
+export async function getAllBlockedFiles(): Promise<BlockedFileRecord[]> {
+  const db = await getDb();
+  return db.all<BlockedFileRecord[]>('SELECT * FROM blocked_files ORDER BY blocked_at DESC');
+}
+
 export async function upsertBlockedFile(entry: {
   original_path: string;
   filename: string;

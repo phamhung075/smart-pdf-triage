@@ -6,7 +6,7 @@ import { exec, spawn } from 'child_process';
 import { Ollama } from 'ollama';
 import { z } from 'zod';
 import { CONFIG, BASE_DIR, updateConfig } from '../settings.js';
-import { getAllDocuments, getDocumentById, updateDocumentRecord, getDb, getCategorySubcategoryStats, getBlockedFile } from '../db/database.js';
+import { getAllDocuments, getDocumentById, updateDocumentRecord, getDb, getCategorySubcategoryStats, getBlockedFile, getAllBlockedFiles } from '../db/database.js';
 import { checkModelCanGenerate } from '../ollama-client.js';
 import { getCategoriesConfig, saveCategoriesConfig, setOnCategoryCreatedCallback } from '../categories-store.js';
 import { syncJSONRegistry } from '../json-registry.js';
@@ -279,6 +279,17 @@ export function createWebServer(): express.Express {
         totalDocuments: stats.total,
         categories: categoriesWithStats
       });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // List all files currently held in __raws/blocked_files, with why each was blocked
+  // (no digital text/OCR text extracted, or no specific subcategory could be determined).
+  app.get('/api/blocked-files', async (req, res) => {
+    try {
+      const files = await getAllBlockedFiles();
+      res.json({ total: files.length, files });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

@@ -29,6 +29,7 @@
         <button id="btnScan" class="btn-primary">⚡ Scan & Triage PDFs</button>
         <button id="btnRepair" class="btn-secondary" title="Fix file locations, reclassify generic items, and sync registry">🔧 Repair Registry</button>
         <button id="btnClear" class="btn-secondary" style="color: #ef4444; border-color: rgba(239,68,68,0.3);" title="Clear database registry and return archived files to __raws">🗑️ Clear Registry</button>
+        <button id="btnBlockedFiles" class="btn-secondary" title="View files stuck in __raws/blocked_files and why">🚫 Blocked Files<span id="blockedFilesBadge" style="display:none; margin-left: 0.4rem; background: #ef4444; color: #fff; border-radius: 10px; padding: 0.05rem 0.5rem; font-size: 0.75rem;"></span></button>
         <button id="btnOpenRaws" class="btn-secondary" title="Open the __raws incoming folder">📥 Open __raws</button>
         <button id="btnOpenArchive" class="btn-secondary" title="Open the __archive folder">📂 Open __archive</button>
         <button id="btnLogs" class="btn-secondary" title="View real-time backend terminal logs">📋 Terminal Logs</button>
@@ -334,6 +335,24 @@
         <div style="color: #6b7280; font-style: italic;">Connecting to live log stream...</div>
       </div>
     </div>
+
+  <!-- Blocked Files Modal -->
+  <div id="blockedFilesModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 900px; width: 95vw; max-height: 85vh; display: flex; flex-direction: column; background: #0b0f19; border: 1px solid #1e293b; padding: 1.5rem; border-radius: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; border-bottom: 1px solid #1e293b; padding-bottom: 0.8rem;">
+        <h3 style="margin: 0; display: flex; align-items: center; gap: 0.5rem; color: #f87171;">
+          <span>🚫</span> Blocked Files <span id="blockedFilesModalCount" style="color:#94a3b8; font-weight:400; font-size:0.9rem;"></span>
+        </h3>
+        <button class="modal-close" id="btnCloseBlockedFilesModal">&times;</button>
+      </div>
+      <p style="color:#94a3b8; font-size:0.85rem; margin: 0 0 1rem 0;">
+        These files stayed in <code>__raws/blocked_files</code> because no text could be extracted from them, or no specific subcategory could be determined (Golden Rule #4). Fix the file (e.g. remove a password, rescan a clearer copy) and it will be automatically re-picked by the next scan.
+      </p>
+      <div id="blockedFilesList" style="flex: 1; overflow-y: auto;">
+        <div style="color: #6b7280; font-style: italic;">Loading...</div>
+      </div>
+    </div>
+  </div>
   <!-- Grand Format Document Reader Modal -->
   <div id="grandViewerModal" class="modal-backdrop">
     <div class="modal" style="width: 92vw; max-width: 1400px; height: 90vh; display: flex; flex-direction: column; padding: 1.5rem; background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);">

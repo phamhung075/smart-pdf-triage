@@ -22,6 +22,7 @@ const {
   getDbMock,
   getCategorySubcategoryStatsMock,
   getBlockedFileMock,
+  getAllBlockedFilesMock,
 } = vi.hoisted(() => ({
   getAllDocumentsMock: vi.fn(),
   getDocumentByIdMock: vi.fn(),
@@ -29,6 +30,7 @@ const {
   getDbMock: vi.fn(),
   getCategorySubcategoryStatsMock: vi.fn(),
   getBlockedFileMock: vi.fn(),
+  getAllBlockedFilesMock: vi.fn(),
 }));
 vi.mock('../db/database.js', () => ({
   getAllDocuments: getAllDocumentsMock,
@@ -37,6 +39,7 @@ vi.mock('../db/database.js', () => ({
   getDb: getDbMock,
   getCategorySubcategoryStats: getCategorySubcategoryStatsMock,
   getBlockedFile: getBlockedFileMock,
+  getAllBlockedFiles: getAllBlockedFilesMock,
 }));
 
 const { checkModelCanGenerateMock } = vi.hoisted(() => ({ checkModelCanGenerateMock: vi.fn() }));
@@ -195,6 +198,7 @@ beforeEach(() => {
   getDbMock.mockReset();
   getCategorySubcategoryStatsMock.mockReset().mockResolvedValue({ total: 0, categoryCounts: {}, subcategoryCounts: {} });
   getBlockedFileMock.mockReset();
+  getAllBlockedFilesMock.mockReset().mockResolvedValue([]);
   checkModelCanGenerateMock.mockReset();
   getCategoriesConfigMock.mockReset().mockReturnValue({ categories: [] });
   saveCategoriesConfigMock.mockReset();
@@ -502,6 +506,33 @@ describe('GET /api/categories', () => {
     const res = await request(app).get('/api/categories').expect(200);
     const invoices = res.body.categories.find((c: any) => c.id === 'invoices');
     expect(invoices.subcategories).toHaveLength(0);
+  });
+});
+
+describe('GET /api/blocked-files', () => {
+  it('returns the total count and list of blocked files', async () => {
+    getAllBlockedFilesMock.mockResolvedValue([
+      { original_path: 'C:/raws/blocked_files/a.pdf', filename: 'a.pdf', reason: 'no_text', message: 'Blocked: No text extracted from PDF.', mtime_ms: 1, size: 10, blocked_at: '2026-08-04T12:00:00.000Z' },
+      { original_path: 'C:/raws/blocked_files/b.pdf', filename: 'b.pdf', reason: 'no_specific_subcategory', message: 'Blocked: no specific subcategory detected.', mtime_ms: 2, size: 20, blocked_at: '2026-08-04T13:00:00.000Z' },
+    ]);
+
+    const res = await request(app).get('/api/blocked-files').expect(200);
+
+    expect(res.body.total).toBe(2);
+    expect(res.body.files).toHaveLength(2);
+    expect(res.body.files[0].filename).toBe('a.pdf');
+    expect(res.body.files[1].reason).toBe('no_specific_subcategory');
+  });
+
+  it('returns an empty list when nothing is blocked', async () => {
+    const res = await request(app).get('/api/blocked-files').expect(200);
+    expect(res.body).toEqual({ total: 0, files: [] });
+  });
+
+  it('returns 500 when the DB layer throws', async () => {
+    getAllBlockedFilesMock.mockRejectedValue(new Error('DB unavailable'));
+    const res = await request(app).get('/api/blocked-files').expect(500);
+    expect(res.body.error).toBe('DB unavailable');
   });
 });
 
